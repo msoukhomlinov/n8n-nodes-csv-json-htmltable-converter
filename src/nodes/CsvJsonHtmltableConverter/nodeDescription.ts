@@ -162,11 +162,7 @@ export const nodeDescription: INodeTypeDescription = {
       default: 'simple',
       description: 'How to select tables from HTML - Simple uses presets, Advanced gives more control',
       displayOptions: {
-        show: {
-          operation: ['replace'],
-        },
         hide: {
-          operation: ['convert'],
           sourceFormat: ['csv', 'json', 'n8nObject'],
         },
       },
@@ -206,11 +202,9 @@ export const nodeDescription: INodeTypeDescription = {
       description: 'Predefined selector patterns for common table locations',
       displayOptions: {
         show: {
-          operation: ['replace'],
           selectorMode: ['simple'],
         },
         hide: {
-          operation: ['convert'],
           sourceFormat: ['csv', 'json', 'n8nObject'],
           selectorMode: ['advanced'],
         },
@@ -349,8 +343,6 @@ export const nodeDescription: INodeTypeDescription = {
       description: 'Whether to include table headers in the converted output',
       displayOptions: {
         show: {
-          operation: ['convert'],
-          sourceFormat: ['html', 'csv', 'json', 'n8nObject'],
           targetFormat: ['html'],
         },
       },
