@@ -1,0 +1,152 @@
+# Instructions
+
+During you interaction with the user, if you find anything reusable in this project (e.g. version of a library, model name), especially about a fix to a mistake you made or a correction you received, you should take note in the `Lessons` section in the `.cursorrules` file so you will not make the same mistake again.
+
+You should also use the `.cursorrules` file as a scratchpad to organize your thoughts. Especially when you receive a new task, you should first review the content of the scratchpad, clear old different task if necessary, first explain the task, and plan the steps you need to take to complete the task. You can use todo markers to indicate the progress, e.g.
+[X] Task 1
+[ ] Task 2
+
+Also update the progress of the task in the Scratchpad when you finish a subtask.
+Especially when you finished a milestone, it will help to improve your depth of task accomplishment to use the scratchpad to reflect and plan.
+The goal is to help you maintain a big picture as well as the progress of the task. Always refer to the Scratchpad when you plan the next step.
+
+# MCP Server Tools Usage
+
+## Strategic Tool Selection
+
+- **Sequential Thinking:**
+  - Use for multi-step operations requiring careful planning.
+  - Maintain operational context to enable course correction.
+  - Begin with a higher number of total thoughts (e.g. 8–12) for complex tasks.
+  - Use branching to explore alternative approaches and mark revisions when needed.
+  - Set `needsMoreThoughts=true` when new complexities arise.
+
+- **Web Research (via Brave Search):**
+  - Always conduct initial broad searches, then follow with detailed research.
+  - Validate technical approaches, error handling strategies, and best practices.
+  - Cross-reference multiple reputable sources before implementation.
+
+- **Puppeteer Operations:**
+  - Use for intricate web interactions and testing.
+  - Implement chained operations with robust error handling, waits, and retries.
+  - Optimise memory by closing pages when done and reusing browser instances.
+
+- **Server Memory (Knowledge Graph):**
+  - Maintain complex relationships and operational context.
+  - Create entities for major components and concepts.
+  - Map dependencies and document architectural decisions.
+  - Regularly clean up obsolete entities and update relationships.
+
+- **Memory (@itseasy21\mcp-knowledge-graph):**
+  - Start with "Remembering..." and read what you stored in memory before working on a task
+  - Reference knowledge as "memory"
+  - When the assigned task is done:
+    1. Create/update entities
+    2. Define relationships
+    3. Store observations
+
+- **Firecrawl MCP:**
+  - Use for advanced web crawling and data extraction tasks.
+  - Efficiently navigate complex websites and extract structured data.
+  - Handle pagination, authentication, and dynamic content loading.
+  - Process and transform extracted data for integration with other systems.
+
+### Sequential Thinking
+- Use for operations requiring multiple steps
+- Essential for maintaining operational context
+- Helps break down large changes into manageable chunks
+- Enables course correction and revision of approach
+- Key usage patterns:
+  * Start with higher total_thoughts for complex tasks (8-12)
+  * Use branching for exploring alternative approaches
+  * Mark revisions when changing previous decisions
+  * Set needsMoreThoughts=true when discovering new complexity
+  * Use as tactical memory during long operations
+
+### Web Research (Brave Search)
+- Always search before implementing complex features
+- Research patterns:
+  * Start with broad concept search
+  * Follow up with specific implementation details
+  * Look for recent discussions and solutions
+  * Cross-reference multiple sources
+  * Use for validating approach before major changes
+- Key usage:
+  * Technical implementation patterns
+  * Error handling strategies
+  * Best practices validation
+  * Community solutions to similar problems
+
+### Puppeteer Operations
+- Use for complex web interactions and testing
+- Strategic patterns:
+  * Chain operations with proper error handling
+  * Use screenshots for validation points
+  * Implement waits and retries for stability
+  * Maintain session context across operations
+- Memory management:
+  * Close pages when done
+  * Reuse browser instances when possible
+  * Clear large objects after operations
+  * Monitor memory usage in long sessions
+
+### Memory Management
+- Start with "Remembering..." and read what you stored in memory before working on a task
+- Reference knowledge as "memory"
+- When the assigned task is done:
+  1. Create/update entities
+  2. Define relationships
+  3. Store observations
+
+### Firecrawl Operations
+- Use for comprehensive web data extraction
+- Strategic patterns:
+  * Define clear extraction targets and selectors
+  * Handle site navigation and state management
+  * Process and transform extracted data
+  * Implement error recovery and retry mechanisms
+- Best practices:
+  * Respect website terms of service and robots.txt
+  * Implement rate limiting to avoid overloading servers
+  * Store extracted data efficiently
+  * Validate data integrity after extraction
+
+## Operational Guidelines
+
+### For Moderate Changes (30-100 lines):
+1. Start with sequential thinking (5-8 thoughts)
+2. Research similar implementations
+3. Plan key validation points
+4. Execute with regular state checks
+
+### For Large Changes (100+ lines):
+1. Begin with comprehensive sequential thinking (10+ thoughts)
+2. Extensive research phase
+3. Break into sub-operations
+4. Regular validation checkpoints
+5. Maintain operational memory through scratchpad
+
+# Lessons
+
+
+# Scratchpad
+
+## Current Task: Remove support for excluding Table Headers in JSON, CSV, and n8n Object outputs
+[X] Update the nodeDescription.ts to only show "Include Table Headers" option for HTML target format
+[X] Modify the htmlToCsv function to always include headers when available
+[X] Modify the htmlToJson function to always include headers when available
+[X] Update the convertData.ts function to always include headers for n8nObject to CSV conversion
+[X] Update the CsvJsonHtmltableConverter.node.ts file to always set includeTableHeaders to true for non-HTML target formats
+[X] Update jsonToCsv function to always include headers
+[X] Update csvToJson function to always include headers
+[X] Fix build errors and verify the changes compile correctly
+[X] Update .cursorrules with the lessons learned
+
+## TODO
+- [X] For source Format of n8n object, we should not be showing "Include Table Headers", "Pretty Print Output" and "Multiple Tables/Objects" and "Output Field" as all of them are not applicable
+- [X] When converting n8n object to target HTML, keep these options: Include Table Headers, Pretty Print Output, Output Field
+- [X] To Fix: When converting HTML to CSV or JSON, when "Include Table Headers" option is false, headers are still included
+- [X] To Fix: When converting n8n obect to CSV or JSON, when "Include Table Headers" option is false, headers are still included
+- [X] When converting to JSON, CSV and N8N Object, remove support to exclude Table Headers
+- [ ] Layer Operation over the existing functionality as Convert (or alike) and add another operation called Replace. This new Replace operation will be used to replaced a table inside HTML input with html table from second input content. We'll use the same searching functionality for HTML source like we have in convert, instead of extracting that portion, we'll be just replacing it with provided content.
+- [ ] When Converting with 'Multiple Tables/Objects' off, we should only be converting and outputting first table.

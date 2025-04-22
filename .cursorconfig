@@ -1,0 +1,36 @@
+# Cursor Editor Configuration for n8n node development
+
+# Editor settings
+tab_size: 2
+insert_spaces: true
+trim_trailing_whitespace: true
+insert_final_newline: true
+
+# TypeScript-specific settings
+typescript:
+  suggest_imports: true
+  auto_import: true
+  code_completion: true
+  format_on_save: true
+
+# Code style
+max_line_length: 100
+quote_style: single
+semicolons: true
+
+# AI assistance settings
+ai_suggestions:
+  enabled: true
+  contexts:
+    - n8n
+    - typescript
+    - node
+  completion_delay_ms: 100
+
+# Search settings
+search:
+  exclude_patterns:
+    - "node_modules/**"
+    - "dist/**"
+    - "coverage/**"
+  include_hidden: false 

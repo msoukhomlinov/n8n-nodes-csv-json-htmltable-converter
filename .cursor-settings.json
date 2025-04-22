@@ -1,0 +1,226 @@
+{
+  "snippets": {
+    "directory": ".cursor-snippets",
+    "autoload": true,
+    "suggestSnippets": true
+  },
+  "ai": {
+    "promptsDirectory": ".cursor-prompts",
+    "customPrompts": true,
+    "contextSize": 2048,
+    "completions": {
+      "enabled": true,
+      "delay": 100,
+      "triggerCharacters": [".", "(", "[", "{", ",", ":", " ", "-"],
+      "contextLines": 50,
+      "enableInlineCompletions": true,
+      "enableGhostText": true
+    },
+    "inlineHints": {
+      "enabled": true,
+      "showTypes": true,
+      "showFunctionSignatures": true,
+      "showVariableTypes": true,
+      "showParameterNames": true
+    },
+    "documentation": {
+      "generateOnHover": true,
+      "includeTypes": true,
+      "includeExamples": true,
+      "includeSources": true,
+      "autoGenerateJSDoc": true,
+      "autoGenerateCommentHelp": true
+    },
+    "codeActions": {
+      "suggestRefactorings": true,
+      "suggestFixes": true,
+      "autoImports": true,
+      "organizeImportsOnSave": true
+    },
+    "contextAwareness": {
+      "includeOpenFiles": true,
+      "includeGitHistory": true,
+      "maxFileSize": 1000000,
+      "includeProjectDependencies": true,
+      "scanWorkspaceOnStartup": true
+    }
+  },
+  "workspace": {
+    "cacheDirectory": ".cursor",
+    "indexExclude": [
+      "node_modules",
+      "dist",
+      "build",
+      "coverage",
+      ".git",
+      "*.log",
+      "tmp",
+      "*.exe",
+      "*.dll",
+      "*.pdb"
+    ],
+    "maxFileSizeLimit": 5000000,
+    "autoSaveDelay": 1000,
+    "formatOnPaste": true,
+    "trimTrailingWhitespace": true,
+    "insertFinalNewline": true
+  },
+  "editor": {
+    "formatOnSave": true,
+    "tabSize": 2,
+    "insertSpaces": true,
+    "wordWrap": "on",
+    "rulers": [100],
+    "bracketPairColorization": true,
+    "minimap": {
+      "enabled": true,
+      "showSlider": "always",
+      "renderCharacters": true
+    },
+    "suggestSelection": "first",
+    "acceptSuggestionOnEnter": "smart",
+    "quickSuggestions": {
+      "other": true,
+      "comments": true,
+      "strings": true
+    },
+    "cursorBlinking": "smooth",
+    "cursorSmoothCaretAnimation": true,
+    "guides": {
+      "indentation": true,
+      "bracketPairs": true,
+      "highlightActiveIndentation": true
+    }
+  },
+  "language": {
+    "typescript": {
+      "suggest": {
+        "completeFunctionCalls": true,
+        "includeCompletionsForModuleExports": true,
+        "includeCompletionsWithSnippetText": true,
+        "autoImportSuggestions": true
+      },
+      "implementationsCodeLens": true,
+      "referencesCodeLens": true,
+      "format": {
+        "semicolons": "insert",
+        "insertSpaceAfterOpeningAndBeforeClosingNonemptyBraces": true
+      }
+    },
+    "javascript": {
+      "suggest": {
+        "completeFunctionCalls": true,
+        "includeCompletionsForModuleExports": true
+      },
+      "format": {
+        "semicolons": "insert"
+      }
+    },
+    "powershell": {
+      "codeFormatting": {
+        "preset": "OTBS",
+        "alignPropertyValuePairs": true,
+        "ignoreOneLineBlock": true,
+        "newLineAfterOpenBrace": true,
+        "newLineAfterCloseBrace": true,
+        "whitespaceBeforeOpenBrace": true,
+        "whitespaceInsideBrace": true,
+        "whitespaceAroundOperator": true,
+        "whitespaceBetweenParameters": true
+      },
+      "codeFolding": {
+        "enable": true,
+        "showLastLine": true
+      },
+      "scriptAnalysis": {
+        "enable": true,
+        "settingsPath": ".vscode/PSScriptAnalyzerSettings.psd1"
+      },
+      "debugging": {
+        "createTemporaryIntegratedConsole": true,
+        "waitForDebugger": true
+      },
+      "developer": {
+        "featureFlags": ["PSReadLine"],
+        "editorServicesLogLevel": "Normal"
+      },
+      "helpCompletion": "BlockComment"
+    }
+  },
+  "git": {
+    "enableSmartCommit": true,
+    "autofetch": true,
+    "confirmSync": true,
+    "autoStash": true,
+    "branchProtection": true,
+    "fetchOnPull": true
+  },
+  "terminal": {
+    "shell": {
+      "windows": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+      "args": ["-NoLogo", "-NoProfile", "-ExecutionPolicy", "RemoteSigned"]
+    },
+    "integrated": {
+      "shellIntegration": true,
+      "windowsEnableConpty": true,
+      "defaultProfile": {
+        "windows": "PowerShell"
+      },
+      "copyOnSelection": true,
+      "rightClickBehavior": "selectWord",
+      "env": {
+        "POWERSHELL_TELEMETRY_OPTOUT": "1",
+        "POWERSHELL_UPDATECHECK": "Off"
+      },
+      "profiles": {
+        "powershell": {
+          "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+          "args": ["-NoLogo", "-NoProfile"],
+          "icon": "terminal-powershell"
+        }
+      }
+    },
+    "commandFormatting": {
+      "useWindowsSyntax": true,
+      "useBackslashAsPathSeparator": true
+    }
+  },
+  "debug": {
+    "inlineValues": true,
+    "toolBarLocation": "docked",
+    "showInlineBreakpointType": true,
+    "openDebug": "openOnDebugBreak",
+    "console": "integratedTerminal"
+  },
+  "search": {
+    "exclude": {
+      "**/node_modules": true,
+      "**/bower_components": true,
+      "**/*.code-search": true,
+      "**/*.dll": true,
+      "**/*.exe": true,
+      "**/*.pdb": true
+    },
+    "quickOpen": {
+      "includeSymbols": true,
+      "includeHistory": true
+    }
+  },
+  "files": {
+    "associations": {
+      "*.ps1": "powershell",
+      "*.psm1": "powershell",
+      "*.psd1": "powershell",
+      "*.ps1xml": "xml"
+    },
+    "exclude": {
+      "**/.git": true,
+      "**/.svn": true,
+      "**/.DS_Store": true,
+      "**/Thumbs.db": true,
+      "**/*.exe": true,
+      "**/*.dll": true,
+      "**/*.pdb": true
+    }
+  }
+}
