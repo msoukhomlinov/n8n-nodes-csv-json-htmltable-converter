@@ -44,19 +44,22 @@ export async function convertData(
         // Convert n8nObject to CSV using PapaParse directly for better tabular format
         // For a single object (not an array), wrap it in an array to create a table with one row
         const dataForCsv = Array.isArray(objectData) ? objectData : [objectData];
-
-        // Use Papa.unparse to create a proper CSV with headers from object keys
+        const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : true;
         const delimiter = options.csvDelimiter || DEFAULT_CSV_DELIMITER;
-        // Always include headers for CSV output
         let result: string;
 
-        // Always include headers for CSV output when possible
         if (dataForCsv.length > 0) {
-          const fields = Object.keys(dataForCsv[0] as Record<string, unknown>);
-          result = Papa.unparse({
-            fields,
-            data: dataForCsv as unknown[][]
-          }, { delimiter });
+          if (includeHeaders) {
+            const fields = Object.keys(dataForCsv[0] as Record<string, unknown>);
+            result = Papa.unparse({
+              fields,
+              data: dataForCsv as unknown[][]
+            }, { delimiter, header: true });
+          } else {
+            // When not including headers, just output the values as arrays
+            const data = dataForCsv.map(obj => Object.values(obj as Record<string, unknown>));
+            result = Papa.unparse(data, { delimiter, header: false });
+          }
         } else {
           // Empty data array, return empty string
           result = '';
@@ -97,8 +100,12 @@ export async function convertData(
 
         // For n8n object format, return the parsed data directly without transforming to indexed objects
         if (Array.isArray(parsedData)) {
-          // If single table and not multipleItems, return the content directly
-          if (!options.multipleItems && parsedData.length === 1 && Array.isArray(parsedData[0])) {
+          // Only nest if multipleItems is true AND there are multiple items
+          if (options.multipleItems && parsedData.length > 1) {
+            return parsedData;
+          }
+          // For single item or when multipleItems=false, return the flat content
+          if (parsedData.length === 1 && Array.isArray(parsedData[0])) {
             return parsedData[0];
           }
           return parsedData;

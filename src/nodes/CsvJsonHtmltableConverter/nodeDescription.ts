@@ -226,12 +226,10 @@ export const nodeDescription: INodeTypeDescription = {
       description: 'The heading level to search for (h1-h6)',
       displayOptions: {
         show: {
-          operation: ['replace'],
           selectorMode: ['simple'],
           tablePreset: ['table-under-heading'],
         },
         hide: {
-          operation: ['convert'],
           sourceFormat: ['csv', 'json', 'n8nObject'],
           selectorMode: ['advanced'],
           tablePreset: ['all-tables', 'first-table', 'last-table', 'custom'],
@@ -246,12 +244,10 @@ export const nodeDescription: INodeTypeDescription = {
       description: 'Text content the heading should contain (case-insensitive, partial match). Leave empty to match any heading.',
       displayOptions: {
         show: {
-          operation: ['replace'],
           selectorMode: ['simple'],
           tablePreset: ['table-under-heading'],
         },
         hide: {
-          operation: ['convert'],
           sourceFormat: ['csv', 'json', 'n8nObject'],
           selectorMode: ['advanced'],
           tablePreset: ['all-tables', 'first-table', 'last-table', 'custom'],
@@ -266,12 +262,10 @@ export const nodeDescription: INodeTypeDescription = {
       description: 'The index of the table to select when multiple tables are found after a heading (1 = first table)',
       displayOptions: {
         show: {
-          operation: ['replace'],
           selectorMode: ['simple'],
           tablePreset: ['table-under-heading'],
         },
         hide: {
-          operation: ['convert'],
           sourceFormat: ['csv', 'json', 'n8nObject'],
           selectorMode: ['advanced'],
           tablePreset: ['all-tables', 'first-table', 'last-table', 'custom'],
@@ -286,12 +280,10 @@ export const nodeDescription: INodeTypeDescription = {
       description: 'CSS selector to identify HTML tables (when using custom preset). <a href="https://cheerio.js.org/docs/basics/selecting" target="_blank">Learn more about Cheerio selectors</a>',
       displayOptions: {
         show: {
-          operation: ['replace'],
           selectorMode: ['simple'],
           tablePreset: ['custom'],
         },
         hide: {
-          operation: ['convert'],
           sourceFormat: ['csv', 'json', 'n8nObject'],
           selectorMode: ['advanced'],
           tablePreset: ['all-tables', 'first-table', 'last-table', 'table-under-heading'],
@@ -324,11 +316,9 @@ export const nodeDescription: INodeTypeDescription = {
       description: 'CSS selector to identify the HTML element containing tables. Tables will be searched within these elements.',
       displayOptions: {
         show: {
-          operation: ['replace'],
           selectorMode: ['advanced'],
         },
         hide: {
-          operation: ['convert'],
           sourceFormat: ['csv', 'json', 'n8nObject'],
           selectorMode: ['simple'],
         },
@@ -343,7 +333,7 @@ export const nodeDescription: INodeTypeDescription = {
       description: 'Whether to include table headers in the converted output',
       displayOptions: {
         show: {
-          targetFormat: ['html'],
+          operation: ['convert'],
         },
       },
     },
@@ -355,12 +345,8 @@ export const nodeDescription: INodeTypeDescription = {
       description: 'Whether to format the output with proper indentation and spacing',
       displayOptions: {
         show: {
-          operation: ['replace'],
-        },
-        hide: {
+          targetFormat: ['csv', 'json', 'html'],
           operation: ['convert'],
-          sourceFormat: ['csv', 'n8nObject'],
-          targetFormat: ['csv'],
         },
       },
     },
@@ -373,7 +359,7 @@ export const nodeDescription: INodeTypeDescription = {
       displayOptions: {
         show: {
           operation: ['convert'],
-          sourceFormat: ['html', 'csv', 'json'],
+          sourceFormat: ['html', 'json'],
         },
       },
     },
@@ -385,8 +371,6 @@ export const nodeDescription: INodeTypeDescription = {
       description: 'The name of the output field to store the converted or replaced data',
       displayOptions: {
         hide: {
-          operation: ['convert'],
-          sourceFormat: ['html', 'csv', 'json', 'n8nObject'],
           targetFormat: ['n8nObject'],
         },
       },

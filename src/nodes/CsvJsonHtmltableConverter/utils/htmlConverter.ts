@@ -261,55 +261,57 @@ function processTable($: cheerio.Root, table: cheerio.Element, includeHeaders: b
 export async function htmlToJson(html: string, options: ConversionOptions): Promise<string> {
   const tables = extractTableData(html, options);
   const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
+  const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
 
   if (tables.length === 0) {
     throw new Error('No tables found in HTML');
   }
 
-  // Handle single table vs. multiple tables
-  if (!options.multipleItems && tables.length === 1) {
-    const table = tables[0];
-    const jsonData = [];
+  // Only nest output if multipleItems is true AND we have multiple tables
+  if (options.multipleItems && tables.length > 1) {
+    // Multiple tables
+    const jsonData = tables.map(table => {
+      const tableData = [];
 
-    // Convert to array of objects with headers as keys (always include headers for JSON output)
-    if (table.headers.length > 0) {
-      for (const row of table.rows) {
-        const rowObj: Record<string, string> = {};
-        table.headers.forEach((header, index) => {
-          if (index < row.length) {
-            rowObj[header] = row[index];
-          }
-        });
-        jsonData.push(rowObj);
+      if (table.headers.length > 0 && includeHeaders) {
+        for (const row of table.rows) {
+          const rowObj: Record<string, string> = {};
+          table.headers.forEach((header, index) => {
+            if (index < row.length) {
+              rowObj[header] = row[index];
+            }
+          });
+          tableData.push(rowObj);
+        }
+      } else {
+        tableData.push(...table.rows);
       }
-    } else {
-      // No headers available, just return array of arrays
-      jsonData.push(...table.rows);
-    }
+
+      return tableData;
+    });
 
     return JSON.stringify(jsonData, null, prettyPrint ? 2 : 0);
   }
 
-  // Multiple tables
-  const jsonData = tables.map(table => {
-    const tableData = [];
+  // Default: handle as single table (either just one table or multipleItems is false)
+  const table = tables[0];
+  const jsonData = [];
 
-    if (table.headers.length > 0) {
-      for (const row of table.rows) {
-        const rowObj: Record<string, string> = {};
-        table.headers.forEach((header, index) => {
-          if (index < row.length) {
-            rowObj[header] = row[index];
-          }
-        });
-        tableData.push(rowObj);
-      }
-    } else {
-      tableData.push(...table.rows);
+  // Convert to array of objects with headers as keys if includeHeaders is true
+  if (table.headers.length > 0 && includeHeaders) {
+    for (const row of table.rows) {
+      const rowObj: Record<string, string> = {};
+      table.headers.forEach((header, index) => {
+        if (index < row.length) {
+          rowObj[header] = row[index];
+        }
+      });
+      jsonData.push(rowObj);
     }
-
-    return tableData;
-  });
+  } else {
+    // No headers available or not including headers, just return array of arrays
+    jsonData.push(...table.rows);
+  }
 
   return JSON.stringify(jsonData, null, prettyPrint ? 2 : 0);
 }
@@ -319,51 +321,52 @@ export async function htmlToJson(html: string, options: ConversionOptions): Prom
  */
 export async function htmlToCsv(html: string, options: ConversionOptions): Promise<string> {
   const tables = extractTableData(html, options);
+  const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
 
   if (tables.length === 0) {
     throw new Error('No tables found in HTML');
   }
 
   const delimiter = options.csvDelimiter || ',';
-  // Always include headers for CSV output
   let csvContent = '';
 
-  // Handle single table vs. multiple tables
-  if (!options.multipleItems && tables.length === 1) {
-    const table = tables[0];
+  // Only nest output if multipleItems is true AND we have multiple tables
+  if (options.multipleItems && tables.length > 1) {
+    // Multiple tables - we'll separate them with blank lines
+    for (let i = 0; i < tables.length; i++) {
+      const table = tables[i];
 
-    // Add headers if present (always include headers for CSV output)
-    if (table.headers.length > 0) {
-      csvContent += Papa.unparse({
-        fields: table.headers,
-        data: table.rows
-      }, { delimiter, header: true });
-    } else {
-      // No headers available, just convert rows
-      csvContent += Papa.unparse(table.rows, { delimiter, header: false });
+      if (i > 0) {
+        csvContent += '\n\n';
+      }
+
+      // Add headers if present and includeHeaders is true
+      if (table.headers.length > 0 && includeHeaders) {
+        csvContent += Papa.unparse({
+          fields: table.headers,
+          data: table.rows
+        }, { delimiter, header: true });
+      } else {
+        // No headers available or includeHeaders is false, just convert rows
+        csvContent += Papa.unparse(table.rows, { delimiter, header: false });
+      }
     }
 
     return csvContent;
   }
 
-  // Multiple tables - we'll separate them with blank lines
-  for (let i = 0; i < tables.length; i++) {
-    const table = tables[i];
+  // Default: handle as single table (either just one table or multipleItems is false)
+  const table = tables[0];
 
-    if (i > 0) {
-      csvContent += '\n\n';
-    }
-
-    // Add headers if present (always include headers for CSV output)
-    if (table.headers.length > 0) {
-      csvContent += Papa.unparse({
-        fields: table.headers,
-        data: table.rows
-      }, { delimiter, header: true });
-    } else {
-      // No headers available, just convert rows
-      csvContent += Papa.unparse(table.rows, { delimiter, header: false });
-    }
+  // Add headers if present and includeHeaders is true
+  if (table.headers.length > 0 && includeHeaders) {
+    csvContent += Papa.unparse({
+      fields: table.headers,
+      data: table.rows
+    }, { delimiter, header: true });
+  } else {
+    // No headers available or includeHeaders is false, just convert rows
+    csvContent += Papa.unparse(table.rows, { delimiter, header: false });
   }
 
   return csvContent;

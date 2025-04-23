@@ -8,9 +8,7 @@ import { DEFAULT_CSV_DELIMITER, DEFAULT_INCLUDE_HEADERS, DEFAULT_PRETTY_PRINT } 
  */
 function parseCSV(csv: string, options: ConversionOptions) {
   const delimiter = options.csvDelimiter || DEFAULT_CSV_DELIMITER;
-  // When converting to JSON, always use headers if available
-  const includeHeaders = options.targetFormat === 'json' ? true :
-    (options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS);
+  const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
 
   const result = Papa.parse(csv, {
     delimiter,
@@ -29,9 +27,7 @@ function parseCSV(csv: string, options: ConversionOptions) {
  * Converts CSV to JSON
  */
 export async function csvToJson(csv: string, options: ConversionOptions): Promise<string> {
-  // When converting to JSON, always include headers
-  const modifiedOptions = { ...options, includeTableHeaders: true };
-  const result = parseCSV(csv, modifiedOptions);
+  const result = parseCSV(csv, options);
   const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
 
   // If we have headers, result.data will already be an array of objects

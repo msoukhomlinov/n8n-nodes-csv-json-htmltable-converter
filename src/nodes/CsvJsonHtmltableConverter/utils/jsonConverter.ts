@@ -19,7 +19,7 @@ function parseJSON(jsonStr: string) {
  */
 export async function jsonToCsv(jsonStr: string, options: ConversionOptions): Promise<string> {
   const delimiter = options.csvDelimiter || DEFAULT_CSV_DELIMITER;
-  // Always include headers for CSV output
+  const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
   const jsonData = parseJSON(jsonStr);
 
   // Handle different JSON structures (array of objects, array of arrays, etc.)
@@ -30,7 +30,7 @@ export async function jsonToCsv(jsonStr: string, options: ConversionOptions): Pr
       const json2csvParser = new Parser({
         fields,
         delimiter,
-        header: true
+        header: includeHeaders
       });
       return json2csvParser.parse(jsonData);
     }
@@ -49,8 +49,11 @@ export async function jsonToCsv(jsonStr: string, options: ConversionOptions): Pr
     // For simple objects, convert to array of key-value pairs
     if (typeof jsonData === 'object' && !Array.isArray(jsonData)) {
       const rows = [];
-      // Always include headers for Key-Value pairs
-      rows.push(['Key', 'Value'].join(delimiter));
+
+      // Add headers only if includeHeaders is true
+      if (includeHeaders) {
+        rows.push(['Key', 'Value'].join(delimiter));
+      }
 
       for (const [key, value] of Object.entries(jsonData)) {
         rows.push([

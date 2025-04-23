@@ -128,25 +128,200 @@ The goal is to help you maintain a big picture as well as the progress of the ta
 
 # Lessons
 
+- When converting to n8n Object format, results should be returned directly in the `json` property without wrapping them in a `convertedData` field to maintain a cleaner output format
+- For n8n Object output, if the result is an array with a single item, we should return just that item rather than the array
+- For other output formats (HTML, CSV, JSON), the result should be wrapped in the specified `outputField` (default: "convertedData")
 
 # Scratchpad
 
-## Current Task: Remove support for excluding Table Headers in JSON, CSV, and n8n Object outputs
-[X] Update the nodeDescription.ts to only show "Include Table Headers" option for HTML target format
-[X] Modify the htmlToCsv function to always include headers when available
-[X] Modify the htmlToJson function to always include headers when available
-[X] Update the convertData.ts function to always include headers for n8nObject to CSV conversion
-[X] Update the CsvJsonHtmltableConverter.node.ts file to always set includeTableHeaders to true for non-HTML target formats
-[X] Update jsonToCsv function to always include headers
-[X] Update csvToJson function to always include headers
-[X] Fix build errors and verify the changes compile correctly
-[X] Update .cursorrules with the lessons learned
+# CSV JSON HTMLTable Converter - Format Conversions Documentation
 
-## TODO
-- [X] For source Format of n8n object, we should not be showing "Include Table Headers", "Pretty Print Output" and "Multiple Tables/Objects" and "Output Field" as all of them are not applicable
-- [X] When converting n8n object to target HTML, keep these options: Include Table Headers, Pretty Print Output, Output Field
-- [X] To Fix: When converting HTML to CSV or JSON, when "Include Table Headers" option is false, headers are still included
-- [X] To Fix: When converting n8n obect to CSV or JSON, when "Include Table Headers" option is false, headers are still included
-- [X] When converting to JSON, CSV and N8N Object, remove support to exclude Table Headers
-- [ ] Layer Operation over the existing functionality as Convert (or alike) and add another operation called Replace. This new Replace operation will be used to replaced a table inside HTML input with html table from second input content. We'll use the same searching functionality for HTML source like we have in convert, instead of extracting that portion, we'll be just replacing it with provided content.
-- [ ] When Converting with 'Multiple Tables/Objects' off, we should only be converting and outputting first table.
+## Conversion Combinations and UI Options
+
+### HTML → HTML
+- **UI Parameters Available**:
+  - selectorMode: 'simple' or 'advanced'
+  - tablePreset (when selectorMode = 'simple'): Various options for table selection
+  - tableSelector: CSS selector for tables (if selectorMode = 'advanced' or tablePreset = 'custom')
+  - elementSelector: CSS selector for containing elements (if selectorMode = 'advanced')
+  - headingLevel: 'h1' to 'h6' (if tablePreset = 'table-under-heading')
+  - headingText: Text to match (if tablePreset = 'table-under-heading')
+  - tableIndex: Which table to select (if tablePreset = 'table-under-heading')
+  - includeTableHeaders: Whether to include headers
+  - prettyPrint: Whether to format HTML with indentation
+  - outputField: Field name in output
+  - multipleItems: Whether to process multiple items
+- **Actual Implementation**:
+  - Calls htmlToHtml
+  - All UI parameters are used as specified
+
+### HTML → CSV
+- **UI Parameters Available**:
+  - selectorMode, tablePreset, tableSelector, elementSelector, headingLevel, headingText, tableIndex (same as HTML → HTML)
+  - csvDelimiterOutput: Character used as delimiter in CSV output
+  - outputField: Field name in output
+  - multipleItems: Whether to process multiple items
+- **Actual Implementation**:
+  - Uses htmlToCsv
+  - All UI parameters are used as specified
+
+### HTML → JSON
+- **UI Parameters Available**:
+  - selectorMode, tablePreset, tableSelector, elementSelector, headingLevel, headingText, tableIndex (same as HTML → HTML)
+  - prettyPrint: Whether to format JSON with indentation
+  - outputField: Field name in output
+  - multipleItems: Whether to process multiple items
+- **Actual Implementation**:
+  - Uses htmlToJson
+  - All UI parameters are used as specified
+
+
+
+### HTML → n8nObject
+- **UI Parameters Available**:
+  - selectorMode, tablePreset, tableSelector, elementSelector, headingLevel, headingText, tableIndex (same as HTML → HTML)
+  - outputField: Field name in output
+  - multipleItems: Whether to process multiple items
+- **Actual Implementation**:
+  - Uses htmlToJson internally and parses the result
+  - includeTableHeaders is hardcoded to true regardless of UI setting
+  - Result is directly converted to JavaScript object
+
+### CSV → HTML
+- **UI Parameters Available**:
+  - csvDelimiterInput: Character used to separate CSV values
+  - includeTableHeaders: Whether to include headers in HTML table
+  - prettyPrint: Whether to format HTML with indentation
+  - outputField: Field name in output
+  - multipleItems: Whether to process multiple items
+- **Actual Implementation**:
+  - Uses csvToHtml
+  - All UI parameters are used as specified
+
+### CSV → CSV
+- **UI Parameters Available**:
+  - csvDelimiterInput: Character for input CSV
+  - csvDelimiterOutput: Character for output CSV
+  - outputField: Field name in output
+  - multipleItems: Whether to process multiple items
+- **Actual Implementation**:
+  - Returns data as is (same format)
+  - includeTableHeaders is hardcoded to true regardless of UI setting
+
+### CSV → JSON
+- **UI Parameters Available**:
+  - csvDelimiterInput: Character for CSV input
+  - prettyPrint: Whether to format JSON with indentation
+  - outputField: Field name in output
+  - multipleItems: Whether to process multiple items
+- **Actual Implementation**:
+  - Uses csvToJson
+  - includeTableHeaders is hardcoded to true regardless of UI setting
+  - All other UI parameters are used as specified
+
+### CSV → n8nObject
+- **UI Parameters Available**:
+  - csvDelimiterInput: Character for CSV input
+  - outputField: Field name in output
+  - multipleItems: Whether to process multiple items
+- **Actual Implementation**:
+  - Uses csvToJson internally and parses the result
+  - includeTableHeaders is hardcoded to true regardless of UI setting
+  - Result is directly converted to JavaScript object
+
+### JSON → HTML
+- **UI Parameters Available**:
+  - includeTableHeaders: Whether to include headers in HTML table
+  - prettyPrint: Whether to format HTML with indentation
+  - outputField: Field name in output
+  - multipleItems: Whether to process multiple items
+- **Actual Implementation**:
+  - Uses jsonToHtml
+  - All UI parameters are used as specified
+
+### JSON → CSV
+- **UI Parameters Available**:
+  - csvDelimiterOutput: Character for output CSV
+  - outputField: Field name in output
+  - multipleItems: Whether to process multiple items
+- **Actual Implementation**:
+  - Uses jsonToCsv
+  - includeTableHeaders is hardcoded to true regardless of UI setting
+  - All other UI parameters are used as specified
+
+### JSON → JSON
+- **UI Parameters Available**:
+  - prettyPrint: Whether to format JSON with indentation
+  - outputField: Field name in output
+  - multipleItems: Whether to process multiple items
+- **Actual Implementation**:
+  - Returns data as is (same format)
+  - All UI parameters are used as specified
+
+### JSON → n8nObject
+- **UI Parameters Available**:
+  - outputField: Field name in output
+  - multipleItems: Whether to process multiple items
+- **Actual Implementation**:
+  - Uses JSON.parse to convert JSON string to object
+  - Result is directly returned as JavaScript object
+
+### n8nObject → HTML
+- **UI Parameters Available**:
+  - includeTableHeaders: Whether to include headers in HTML table
+  - prettyPrint: Whether to format HTML with indentation
+  - outputField: Field name in output
+- **Actual Implementation**:
+  - Uses jsonToHtml
+  - multipleItems is hardcoded to false regardless of UI setting
+  - All other UI parameters are used as specified
+  - Special handling: Always combines all items into one array for processing
+
+### n8nObject → CSV
+- **UI Parameters Available**:
+  - csvDelimiterOutput: Character for output CSV
+  - outputField: Field name in output
+  - prettyPrint: Whether to format CSV output
+- **Actual Implementation**:
+  - Uses PapaParse directly
+  - includeTableHeaders is hardcoded to true regardless of UI setting
+  - multipleItems is hardcoded to false regardless of UI setting
+  - Special handling: Always combines all items into one array for processing
+
+### n8nObject → JSON
+- **UI Parameters Available**:
+  - prettyPrint: Whether to format JSON with indentation
+  - outputField: Field name in output
+- **Actual Implementation**:
+  - Uses JSON.stringify
+  - multipleItems is hardcoded to false regardless of UI setting
+  - Special handling: Always combines all items into one array for processing
+
+### n8nObject → n8nObject
+- **UI Parameters Available**:
+  - outputField: Field name in output
+- **Actual Implementation**:
+  - Returns object as is
+  - multipleItems is hardcoded to false regardless of UI setting
+
+## Key Patterns and Issues
+
+1. **Special Output Handling**:
+   - For n8nObject output: Results should be returned directly in the `json` property without wrapping in a `convertedData` field
+   - For other formats (HTML, CSV, JSON): Results should be wrapped in the specified `outputField` (default: "convertedData")
+   - For n8nObject output with single item arrays, the single item should be returned rather than the array
+
+2. **UI Parameter Consistency Issues**:
+   - includeTableHeaders is only used for HTML target format except when source is n8nObject. For all other formats, it's hardcoded to true.
+   - multipleItems is ignored for n8nObject source format, always treated as false.
+   - When n8nObject is the source format and target is HTML/CSV/JSON, all items are combined into one array regardless of multipleItems setting.
+
+3. **Special Cases**:
+   - HTML → HTML: Uses special htmlToHtml function instead of simply returning data
+   - JSON → n8nObject: Uses JSON.parse instead of simply returning data
+   - n8nObject → HTML/CSV/JSON: Special handling to collect all items into one array
+
+4. **Potential Bugs/Inconsistencies**:
+   - When converting to n8nObject, results should be returned directly in the json property without additional wrapping
+   - For n8nObject output with single item arrays, the behavior might be inconsistent with some code assuming arrays and others expecting individual items
+   - The handling of includeTableHeaders and multipleItems parameters is inconsistent across different conversion combinations

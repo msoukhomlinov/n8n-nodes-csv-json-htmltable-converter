@@ -309,8 +309,8 @@ export class CsvJsonHtmltableConverter implements INodeType {
           // For other source formats, use the parameters from the UI
           options.multipleItems = this.getNodeParameter('multipleItems', itemIndex, false) as boolean;
 
-          // Only use includeTableHeaders parameter for HTML target format, always true for other formats
-          if (targetFormat === 'html') {
+          // Use includeTableHeaders parameter for HTML, CSV, and JSON target formats
+          if (targetFormat === 'html' || targetFormat === 'csv' || targetFormat === 'json') {
             options.includeTableHeaders = this.getNodeParameter('includeTableHeaders', itemIndex, true) as boolean;
           } else {
             options.includeTableHeaders = true;
@@ -391,10 +391,10 @@ export class CsvJsonHtmltableConverter implements INodeType {
 
         // For n8n Object, return the object directly
         if (targetFormat === 'n8nObject') {
+          // If result is an array with a single item, return just that item
+          const unwrappedResult = Array.isArray(result) && result.length === 1 ? result[0] : result;
           returnData.push({
-            json: {
-              convertedData: result,
-            },
+            json: unwrappedResult as IDataObject,
           });
         } else {
           // For other formats, return the converted string in the specified output field
