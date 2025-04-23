@@ -3,6 +3,7 @@ import Papa from 'papaparse';
 import { minify } from 'html-minifier';
 import type { ConversionOptions, TableData, TablePreset } from '../types';
 import { DEFAULT_INCLUDE_HEADERS, DEFAULT_PRETTY_PRINT } from './constants';
+import { debug, debugSample } from './debug';
 
 /**
  * Maps preset options to corresponding selectors
@@ -48,6 +49,8 @@ function extractTableData(html: string, options: ConversionOptions): TableData[]
   const tables: TableData[] = [];
   const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
   const multipleItems = options.multipleItems !== undefined ? options.multipleItems : false;
+
+  debug('htmlConverter.ts', `extractTableData - includeTableHeaders: ${includeHeaders}`, { originalOption: options.includeTableHeaders, default: DEFAULT_INCLUDE_HEADERS });
 
   // Determine which selectors to use based on mode
   let elementSelector: string;
@@ -207,169 +210,66 @@ function extractTableData(html: string, options: ConversionOptions): TableData[]
  * Process a table element and extract its data
  */
 function processTable($: cheerio.Root, table: cheerio.Element, includeHeaders: boolean, tables: TableData[]): void {
+  debug('htmlConverter.ts', `processTable - includeHeaders: ${includeHeaders}`);
+
   const tableData: TableData = {
     headers: [],
     rows: [],
   };
 
-  // Extract headers only if required
-  if (includeHeaders) {
-    $(table).find('thead tr th, thead tr td').each((_, cell) => {
+  // Determine if there's a header row we can identify
+  let headerRowSelector = '';
+  let isHeaderRowIdentified = false;
+
+  // Check if there's a thead with rows
+  if ($(table).find('thead tr').length > 0) {
+    headerRowSelector = 'thead tr:first-child';
+    isHeaderRowIdentified = true;
+  } else {
+    // If no thead, check if first row has th elements
+    if ($(table).find('tr:first-child th').length > 0) {
+      headerRowSelector = 'tr:first-child';
+      isHeaderRowIdentified = true;
+    } else if ($(table).find('tr').length > 0) {
+      // If no clear header indicators, assume first row is header
+      headerRowSelector = 'tr:first-child';
+      isHeaderRowIdentified = true;
+    }
+  }
+
+  // Extract headers if we found a header row (regardless of includeHeaders flag)
+  // We need the headers for internal use even if they won't be included in output
+  if (headerRowSelector) {
+    $(table).find(`${headerRowSelector} th, ${headerRowSelector} td`).each((_, cell) => {
       tableData.headers.push($(cell).text().trim());
     });
-
-    // If no thead, use the first row as headers
-    if (tableData.headers.length === 0) {
-      $(table).find('tr:first-child th, tr:first-child td').each((_, cell) => {
-        tableData.headers.push($(cell).text().trim());
-      });
-    }
-
-    // Extract rows, excluding the first row if it was used for headers
-    const rowSelector = tableData.headers.length > 0 ? 'tbody tr, tr:not(:first-child)' : 'tbody tr, tr';
-
-    $(table).find(rowSelector).each((_, row) => {
-      const rowData: string[] = [];
-      $(row).find('td, th').each((_, cell) => {
-        rowData.push($(cell).text().trim());
-      });
-
-      if (rowData.length > 0) {
-        tableData.rows.push(rowData);
-      }
-    });
-  } else {
-    // When not including headers, extract all rows
-    $(table).find('tr').each((_, row) => {
-      const rowData: string[] = [];
-      $(row).find('td, th').each((_, cell) => {
-        rowData.push($(cell).text().trim());
-      });
-
-      if (rowData.length > 0) {
-        tableData.rows.push(rowData);
-      }
-    });
   }
+
+  // Determine which rows to extract as data
+  let dataRowSelector: string;
+
+  if (isHeaderRowIdentified) {
+    // Skip the header row
+    dataRowSelector = headerRowSelector === 'thead tr:first-child' ?
+      'tbody tr, tr:not(thead tr)' : 'tr:not(:first-child)';
+  } else {
+    // No header row identified, include all rows
+    dataRowSelector = 'tr';
+  }
+
+  // Extract data rows
+  $(table).find(dataRowSelector).each((_, row) => {
+    const rowData: string[] = [];
+    $(row).find('td, th').each((_, cell) => {
+      rowData.push($(cell).text().trim());
+    });
+
+    if (rowData.length > 0) {
+      tableData.rows.push(rowData);
+    }
+  });
 
   tables.push(tableData);
-}
-
-/**
- * Converts HTML table(s) to JSON
- */
-export async function htmlToJson(html: string, options: ConversionOptions): Promise<string> {
-  const tables = extractTableData(html, options);
-  const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
-  const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
-
-  if (tables.length === 0) {
-    throw new Error('No tables found in HTML');
-  }
-
-  // Only nest output if multipleItems is true AND we have multiple tables
-  if (options.multipleItems && tables.length > 1) {
-    // Multiple tables
-    const jsonData = tables.map(table => {
-      const tableData = [];
-
-      if (table.headers.length > 0 && includeHeaders) {
-        for (const row of table.rows) {
-          const rowObj: Record<string, string> = {};
-          table.headers.forEach((header, index) => {
-            if (index < row.length) {
-              rowObj[header] = row[index];
-            }
-          });
-          tableData.push(rowObj);
-        }
-      } else {
-        tableData.push(...table.rows);
-      }
-
-      return tableData;
-    });
-
-    return JSON.stringify(jsonData, null, prettyPrint ? 2 : 0);
-  }
-
-  // Default: handle as single table (either just one table or multipleItems is false)
-  const table = tables[0];
-  const jsonData = [];
-
-  // Convert to array of objects with headers as keys if includeHeaders is true
-  if (table.headers.length > 0 && includeHeaders) {
-    for (const row of table.rows) {
-      const rowObj: Record<string, string> = {};
-      table.headers.forEach((header, index) => {
-        if (index < row.length) {
-          rowObj[header] = row[index];
-        }
-      });
-      jsonData.push(rowObj);
-    }
-  } else {
-    // No headers available or not including headers, just return array of arrays
-    jsonData.push(...table.rows);
-  }
-
-  return JSON.stringify(jsonData, null, prettyPrint ? 2 : 0);
-}
-
-/**
- * Converts HTML table(s) to CSV
- */
-export async function htmlToCsv(html: string, options: ConversionOptions): Promise<string> {
-  const tables = extractTableData(html, options);
-  const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
-
-  if (tables.length === 0) {
-    throw new Error('No tables found in HTML');
-  }
-
-  const delimiter = options.csvDelimiter || ',';
-  let csvContent = '';
-
-  // Only nest output if multipleItems is true AND we have multiple tables
-  if (options.multipleItems && tables.length > 1) {
-    // Multiple tables - we'll separate them with blank lines
-    for (let i = 0; i < tables.length; i++) {
-      const table = tables[i];
-
-      if (i > 0) {
-        csvContent += '\n\n';
-      }
-
-      // Add headers if present and includeHeaders is true
-      if (table.headers.length > 0 && includeHeaders) {
-        csvContent += Papa.unparse({
-          fields: table.headers,
-          data: table.rows
-        }, { delimiter, header: true });
-      } else {
-        // No headers available or includeHeaders is false, just convert rows
-        csvContent += Papa.unparse(table.rows, { delimiter, header: false });
-      }
-    }
-
-    return csvContent;
-  }
-
-  // Default: handle as single table (either just one table or multipleItems is false)
-  const table = tables[0];
-
-  // Add headers if present and includeHeaders is true
-  if (table.headers.length > 0 && includeHeaders) {
-    csvContent += Papa.unparse({
-      fields: table.headers,
-      data: table.rows
-    }, { delimiter, header: true });
-  } else {
-    // No headers available or includeHeaders is false, just convert rows
-    csvContent += Papa.unparse(table.rows, { delimiter, header: false });
-  }
-
-  return csvContent;
 }
 
 /**
@@ -385,10 +285,206 @@ function escapeHtml(unsafe: string): string {
 }
 
 /**
+ * Utility function to convert TableData to HTML string for debugging
+ */
+function tableDataToHtml(table: TableData): string {
+  let html = '<table>';
+
+  // Add headers if present
+  if (table.headers.length > 0) {
+    html += '<thead><tr>';
+    for (const header of table.headers) {
+      html += `<th>${escapeHtml(header)}</th>`;
+    }
+    html += '</tr></thead>';
+  }
+
+  // Add rows
+  html += '<tbody>';
+  if (table.rows.length > 0) {
+    // Only include first few rows for debugging
+    const sampleRows = table.rows.slice(0, 3);
+    for (const row of sampleRows) {
+      html += '<tr>';
+      for (const cell of row) {
+        html += `<td>${escapeHtml(cell)}</td>`;
+      }
+      html += '</tr>';
+    }
+    if (table.rows.length > 3) {
+      html += '<tr><td colspan="100">...</td></tr>';
+    }
+  }
+  html += '</tbody></table>';
+
+  return html;
+}
+
+/**
+ * Converts HTML table(s) to JSON
+ */
+export async function htmlToJson(html: string, options: ConversionOptions): Promise<string> {
+  const tables = extractTableData(html, options);
+
+  // Log extracted tables HTML
+  if (tables.length > 0) {
+    const tablesHtml = tables.map(tableDataToHtml).join('\n');
+    debugSample('htmlConverter.ts', 'htmlToJson - Extracted Tables', tablesHtml);
+  }
+
+  const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
+  const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
+
+  debug('htmlConverter.ts', `htmlToJson - includeTableHeaders: ${includeHeaders}`, { originalOption: options.includeTableHeaders, default: DEFAULT_INCLUDE_HEADERS });
+
+  if (tables.length === 0) {
+    throw new Error('No tables found in HTML');
+  }
+
+  // Only nest output if multipleItems is true AND we have multiple tables
+  if (options.multipleItems && tables.length > 1) {
+    // Multiple tables
+    const jsonData = tables.map((table, tableIndex) => {
+      const tableData = [];
+      debug('htmlConverter.ts', `htmlToJson - Table ${tableIndex + 1} - Headers available: ${table.headers.length > 0}, includeHeaders: ${includeHeaders}`);
+
+      if (table.headers.length > 0 && includeHeaders) {
+        debug('htmlConverter.ts', `htmlToJson - Including headers for table ${tableIndex + 1}`);
+        for (const row of table.rows) {
+          const rowObj: Record<string, string> = {};
+          table.headers.forEach((header, index) => {
+            if (index < row.length) {
+              rowObj[header] = row[index];
+            }
+          });
+          tableData.push(rowObj);
+        }
+      } else {
+        debug('htmlConverter.ts', `htmlToJson - Not including headers for table ${tableIndex + 1}`);
+        tableData.push(...table.rows);
+      }
+
+      return tableData;
+    });
+
+    const result = JSON.stringify(jsonData, null, prettyPrint ? 2 : 0);
+    debugSample('htmlConverter.ts', 'htmlToJson - Output JSON (multiple tables)', result);
+    return result;
+  }
+
+  // Default: handle as single table (either just one table or multipleItems is false)
+  const table = tables[0];
+  const jsonData = [];
+  debug('htmlConverter.ts', `htmlToJson - Single table - Headers available: ${table.headers.length > 0}, includeHeaders: ${includeHeaders}`);
+
+  // Convert to array of objects with headers as keys if includeHeaders is true
+  if (table.headers.length > 0 && includeHeaders) {
+    debug('htmlConverter.ts', 'htmlToJson - Including headers for single table');
+    for (const row of table.rows) {
+      const rowObj: Record<string, string> = {};
+      table.headers.forEach((header, index) => {
+        if (index < row.length) {
+          rowObj[header] = row[index];
+        }
+      });
+      jsonData.push(rowObj);
+    }
+  } else {
+    debug('htmlConverter.ts', 'htmlToJson - Not including headers for single table');
+    // No headers available or not including headers, just return array of arrays
+    jsonData.push(...table.rows);
+  }
+
+  const result = JSON.stringify(jsonData, null, prettyPrint ? 2 : 0);
+  debugSample('htmlConverter.ts', 'htmlToJson - Output JSON (single table)', result);
+  return result;
+}
+
+/**
+ * Converts HTML table(s) to CSV
+ */
+export async function htmlToCsv(html: string, options: ConversionOptions): Promise<string> {
+  const tables = extractTableData(html, options);
+
+  // Log extracted tables HTML
+  if (tables.length > 0) {
+    const tablesHtml = tables.map(tableDataToHtml).join('\n');
+    debugSample('htmlConverter.ts', 'htmlToCsv - Extracted Tables', tablesHtml);
+  }
+
+  const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
+
+  debug('htmlConverter.ts', `htmlToCsv - includeTableHeaders: ${includeHeaders}`, { originalOption: options.includeTableHeaders, default: DEFAULT_INCLUDE_HEADERS });
+
+  if (tables.length === 0) {
+    throw new Error('No tables found in HTML');
+  }
+
+  const delimiter = options.csvDelimiter || ',';
+  let csvContent = '';
+
+  // Only nest output if multipleItems is true AND we have multiple tables
+  if (options.multipleItems && tables.length > 1) {
+    // Multiple tables - we'll separate them with blank lines
+    for (let i = 0; i < tables.length; i++) {
+      const table = tables[i];
+      debug('htmlConverter.ts', `htmlToCsv - Table ${i + 1} - Headers available: ${table.headers.length > 0}, includeHeaders: ${includeHeaders}`);
+
+      if (i > 0) {
+        csvContent += '\n\n';
+      }
+
+      // Add headers if present and includeHeaders is true
+      if (table.headers.length > 0 && includeHeaders) {
+        debug('htmlConverter.ts', `htmlToCsv - Including headers for table ${i + 1}`);
+        csvContent += Papa.unparse({
+          fields: table.headers,
+          data: table.rows
+        }, { delimiter, header: true });
+      } else {
+        debug('htmlConverter.ts', `htmlToCsv - Not including headers for table ${i + 1}`);
+        // No headers available or includeHeaders is false, just convert rows
+        csvContent += Papa.unparse(table.rows, { delimiter, header: false });
+      }
+    }
+
+    debugSample('htmlConverter.ts', 'htmlToCsv - Output CSV (multiple tables)', csvContent);
+    return csvContent;
+  }
+
+  // Default: handle as single table (either just one table or multipleItems is false)
+  const table = tables[0];
+  debug('htmlConverter.ts', `htmlToCsv - Single table - Headers available: ${table.headers.length > 0}, includeHeaders: ${includeHeaders}`);
+
+  // Add headers if present and includeHeaders is true
+  if (table.headers.length > 0 && includeHeaders) {
+    debug('htmlConverter.ts', 'htmlToCsv - Including headers for table 1');
+    csvContent += Papa.unparse({
+      fields: table.headers,
+      data: table.rows
+    }, { delimiter, header: true });
+  } else {
+    debug('htmlConverter.ts', 'htmlToCsv - Not including headers for table 1');
+    // No headers available or includeHeaders is false, just convert rows
+    csvContent += Papa.unparse(table.rows, { delimiter, header: false });
+  }
+
+  debugSample('htmlConverter.ts', 'htmlToCsv - Output CSV (single table)', csvContent);
+  return csvContent;
+}
+
+/**
  * Converts HTML table(s) to standardized HTML table(s)
  */
 export async function htmlToHtml(html: string, options: ConversionOptions): Promise<string> {
   const tables = extractTableData(html, options);
+
+  // Log extracted tables HTML
+  if (tables.length > 0) {
+    const tablesHtml = tables.map(tableDataToHtml).join('\n');
+    debugSample('htmlConverter.ts', 'htmlToHtml - Extracted Tables', tablesHtml);
+  }
+
   const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
 
   if (tables.length === 0) {

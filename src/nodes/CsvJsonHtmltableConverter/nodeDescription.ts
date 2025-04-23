@@ -335,6 +335,9 @@ export const nodeDescription: INodeTypeDescription = {
         show: {
           operation: ['convert'],
         },
+        hide: {
+          targetFormat: ['n8nObject'],
+        }
       },
     },
     {

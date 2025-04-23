@@ -131,8 +131,81 @@ The goal is to help you maintain a big picture as well as the progress of the ta
 - When converting to n8n Object format, results should be returned directly in the `json` property without wrapping them in a `convertedData` field to maintain a cleaner output format
 - For n8n Object output, if the result is an array with a single item, we should return just that item rather than the array
 - For other output formats (HTML, CSV, JSON), the result should be wrapped in the specified `outputField` (default: "convertedData")
+- For correct header handling, when `includeTableHeaders` is false, header rows must be entirely excluded from the output data rather than treating them as regular data rows
 
 # Scratchpad
+
+# Analysis of replaceTable Functionality and Required Changes
+
+## Current replaceTable Implementation Review
+
+The current `replaceTable` functionality:
+1. Finds a table in HTML content based on selectors (using `findTable`)
+2. Replaces the found table with new content
+3. Returns the updated HTML
+
+The `findTable` function shares similar logic with `extractTableData` in `htmlConverter.ts`:
+- Both use the same selection mechanisms (simple/advanced modes)
+- Both handle special cases like 'table-under-heading'
+- Both use the same `getPresetSelectors` logic
+
+## Issues Identified Based on Recent Resolution
+
+1. **Header Handling Inconsistency**: The recent issue with `includeTableHeaders` revealed that the current implementation doesn't properly exclude header rows when setting `includeTableHeaders: false`. The same issue likely exists in any place where HTML tables are processed, including when creating replacement tables.
+
+2. **No Direct Header Row Detection**: The `findTable` function doesn't explicitly identify or handle header rows, which could lead to inconsistent behavior when generating replacement content.
+
+3. **No Shared Table Processing Logic**: The `processTable` function in `htmlConverter.ts` and the table finding logic in `replaceTable.ts` are separate implementations, leading to potential inconsistencies.
+
+## Required Changes Plan
+
+[X] Document current behavior and issues
+[ ] Refactor shared table selection logic
+   - Create a shared utility module for table selection that can be used by both `htmlConverter.ts` and `replaceTable.ts`
+   - Move `getPresetSelectors` to this shared module
+   - Ensure consistent handling of all selector options
+
+[ ] Update header handling in table replacement
+   - Modify the table replacement process to respect the `includeTableHeaders` option consistently
+   - Ensure header rows are properly identified and handled according to the option
+   - Use the same header detection logic as in the `processTable` function
+
+[ ] Improve error handling and messages
+   - Ensure error messages are consistent between the two modules
+   - Add more detailed debugging for the replacement process
+
+[ ] Add unit tests for table replacement
+   - Test with various values of `includeTableHeaders`
+   - Test with complex tables containing headers in different formats (thead/th)
+   - Test replacement with different output formats
+
+[ ] Update documentation
+   - Clarify the behavior of `includeTableHeaders` in the context of table replacement
+   - Document limitations of the current header detection approach
+   - Provide examples of common use cases
+
+## Implementation Approach
+
+1. **Create Shared Utilities**:
+   - Extract common table selection logic to a new `tableUtils.ts` file
+   - Move `getPresetSelectors` and selector construction to this file
+   - Create a shared `findTables` function that both modules can use
+
+2. **Standardize Header Detection**:
+   - Implement a consistent method for identifying header rows:
+     - Check for `<thead>` sections
+     - Look for `<th>` elements in the first row
+     - Consider the first row as a header if no explicit header markup
+
+3. **Update replaceTable Implementation**:
+   - Modify to use the shared utilities
+   - Add support for properly handling `includeTableHeaders`
+   - Ensure consistent behavior with the conversion functions
+
+4. **Add Comprehensive Tests**:
+   - Test all combinations of options, especially `includeTableHeaders`
+   - Test with tables that have complex structures
+   - Verify that headers are treated consistently across all operations
 
 # CSV JSON HTMLTable Converter - Format Conversions Documentation
 
@@ -180,7 +253,7 @@ The goal is to help you maintain a big picture as well as the progress of the ta
 ### HTML → n8nObject
 - **UI Parameters Available**:
   - selectorMode, tablePreset, tableSelector, elementSelector, headingLevel, headingText, tableIndex (same as HTML → HTML)
-  - outputField: Field name in output
+  - TODO: "outputField: Field name in output" this does not apply as we should not wrapping our table/object into a field and instead outputting it as an n8n object (flat)
   - multipleItems: Whether to process multiple items
 - **Actual Implementation**:
   - Uses htmlToJson internally and parses the result

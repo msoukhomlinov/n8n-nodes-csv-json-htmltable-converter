@@ -11,6 +11,7 @@ import type { FormatType, ConversionOptions, SelectorMode, TablePreset, Operatio
 import { nodeDescription } from './nodeDescription';
 import Papa from 'papaparse';
 import { replaceTable } from './utils/replaceTable';
+import { debug } from './utils/debug';
 
 export class CsvJsonHtmltableConverter implements INodeType {
   description: INodeTypeDescription = nodeDescription;
@@ -305,6 +306,7 @@ export class CsvJsonHtmltableConverter implements INodeType {
           // Set defaults for n8nObject source format except for HTML target
           options.includeTableHeaders = true;
           options.multipleItems = false;
+          debug('CsvJsonHtmltableConverter.node.ts', `n8nObject source format: includeTableHeaders=${options.includeTableHeaders}`);
         } else {
           // For other source formats, use the parameters from the UI
           options.multipleItems = this.getNodeParameter('multipleItems', itemIndex, false) as boolean;
@@ -312,8 +314,10 @@ export class CsvJsonHtmltableConverter implements INodeType {
           // Use includeTableHeaders parameter for HTML, CSV, and JSON target formats
           if (targetFormat === 'html' || targetFormat === 'csv' || targetFormat === 'json') {
             options.includeTableHeaders = this.getNodeParameter('includeTableHeaders', itemIndex, true) as boolean;
+            debug('CsvJsonHtmltableConverter.node.ts', `sourceFormat=${sourceFormat}, targetFormat=${targetFormat}, includeTableHeaders=${options.includeTableHeaders}`);
           } else {
             options.includeTableHeaders = true;
+            debug('CsvJsonHtmltableConverter.node.ts', `Other target format: includeTableHeaders=${options.includeTableHeaders}`);
           }
         }
 
@@ -387,15 +391,27 @@ export class CsvJsonHtmltableConverter implements INodeType {
         }
 
         // Convert the data
+        debug('CsvJsonHtmltableConverter.node.ts', `Before convertData call: includeTableHeaders=${options.includeTableHeaders}`, options);
         const result = await convertData(inputData, sourceFormat, targetFormat, options);
 
         // For n8n Object, return the object directly
         if (targetFormat === 'n8nObject') {
-          // If result is an array with a single item, return just that item
-          const unwrappedResult = Array.isArray(result) && result.length === 1 ? result[0] : result;
-          returnData.push({
-            json: unwrappedResult as IDataObject,
-          });
+          if (sourceFormat === 'html' && Array.isArray(result) && result.length > 1) {
+            // For HTML tables with multiple rows, we need to return each row as a separate item
+            // without wrapping them in a 'data' property
+            for (const row of result) {
+              returnData.push({
+                json: row as IDataObject,
+              });
+            }
+          } else {
+            // For other cases, maintain existing behavior
+            // If result is an array with a single item, return just that item
+            const unwrappedResult = Array.isArray(result) && result.length === 1 ? result[0] : result;
+            returnData.push({
+              json: unwrappedResult as IDataObject,
+            });
+          }
         } else {
           // For other formats, return the converted string in the specified output field
           returnData.push({

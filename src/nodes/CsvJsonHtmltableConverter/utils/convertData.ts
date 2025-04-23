@@ -4,6 +4,7 @@ import { csvToJson, csvToHtml } from './csvConverter';
 import { jsonToHtml, jsonToCsv } from './jsonConverter';
 import Papa from 'papaparse';
 import { DEFAULT_CSV_DELIMITER } from './constants';
+import { debug } from './debug';
 
 /**
  * Converts data from one format to another based on the specified source and target formats
@@ -14,6 +15,8 @@ export async function convertData(
   targetFormat: FormatType,
   options: ConversionOptions = {}
 ): Promise<string | Record<string, unknown> | unknown[]> {
+  debug('convertData.ts', `Input - sourceFormat: ${sourceFormat}, targetFormat: ${targetFormat}, includeTableHeaders: ${options.includeTableHeaders}`, options);
+
   try {
     // Handle n8nObject as source format
     if (sourceFormat === 'n8nObject') {
@@ -127,11 +130,15 @@ export async function convertData(
 
     // Converting from HTML
     if (sourceFormat === 'html') {
+      debug('convertData.ts', `HTML source conversion - includeTableHeaders: ${options.includeTableHeaders}`);
+
       if (targetFormat === 'csv') {
+        debug('convertData.ts', `Converting HTML to CSV - includeTableHeaders: ${options.includeTableHeaders}`);
         const result = await htmlToCsv(strData, options);
         return result;
       }
       if (targetFormat === 'json') {
+        debug('convertData.ts', `Converting HTML to JSON - includeTableHeaders: ${options.includeTableHeaders}`);
         const result = await htmlToJson(strData, options);
         return result;
       }
@@ -163,6 +170,7 @@ export async function convertData(
 
     throw new Error(`Unsupported conversion: ${sourceFormat} to ${targetFormat}`);
   } catch (error) {
+    debug('convertData.ts', `Error in convertData: ${error.message}`, error);
     throw new Error(`Conversion error (${sourceFormat} to ${targetFormat}): ${error.message}`);
   }
 }
