@@ -6,7 +6,7 @@ This is an n8n community node that provides seamless bidirectional conversion be
 
 ## Key Features
 
-- Supports conversion between HTML tables, CSV, and JSON formats
+- Supports conversion between HTML tables, CSV, JSON, and n8n item format
 - Options for customising the conversion:
   - CSV delimiter
   - HTML table selector
@@ -15,6 +15,10 @@ This is an n8n community node that provides seamless bidirectional conversion be
   - Pretty print output
 - Comprehensive input validation
 - Detailed error messages for troubleshooting
+
+## What is the n8n Item Format?
+
+The n8n item format is the standard data structure used by n8n to pass data between nodes. Each item is an object with a `json` property containing the data, and nodes process arrays of these items. This node can convert to and from this format, making it easy to integrate with other n8n nodes.
 
 ## Installation
 
@@ -92,10 +96,16 @@ The Table Converter node provides the following operations:
 
 - Convert HTML tables to CSV
 - Convert HTML tables to JSON
+- Convert HTML tables to n8n item format
 - Convert CSV to HTML tables
 - Convert CSV to JSON
+- Convert CSV to n8n item format
 - Convert JSON to HTML tables
 - Convert JSON to CSV
+- Convert JSON to n8n item format
+- Convert n8n items to HTML tables
+- Convert n8n items to CSV
+- Convert n8n items to JSON
 
 ### Node Parameters
 
@@ -105,6 +115,7 @@ The format of the input data:
 - HTML
 - CSV
 - JSON
+- n8n item format
 
 #### Target Format
 
@@ -112,6 +123,7 @@ The format to convert the data to:
 - HTML
 - CSV
 - JSON
+- n8n item format
 
 #### Input Data
 
