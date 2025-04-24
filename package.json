@@ -1,0 +1,77 @@
+{
+  "name": "n8n-nodes-csv-json-htmltable-converter",
+  "version": "0.1.0",
+  "description": "A comprehensive n8n node that provides seamless bidirectional conversion between HTML tables, CSV, and JSON formats. ",
+  "keywords": [
+    "n8n",
+    "n8n-node",
+    "n8n-community-node",
+    "html-table",
+    "table",
+    "html",
+    "csv",
+    "json",
+    "converter",
+    "data-conversion",
+    "data-transformation",
+    "replace-table",
+    "extract-table",
+    "csv-to-json",
+    "json-to-csv",
+    "html-to-csv",
+    "csv-to-html",
+    "html-to-json",
+    "json-to-html"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "Max Soukhomlinov",
+    "email": "maxs@intellectit.com.au"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/msoukhomlinov/n8n-nodes-csv-json-htmltable-converter.git"
+  },
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc && gulp build:icons",
+    "dev": "tsc --watch",
+    "lint": "eslint src/**/*.ts",
+    "format": "prettier --write src/**/*.ts",
+    "test": "jest --passWithNoTests --transform '^.+\\.ts$':ts-jest'"
+  },
+  "files": [
+    "dist"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [],
+    "nodes": [
+      "dist/nodes/CsvJsonHtmltableConverter/CsvJsonHtmltableConverter.node.js"
+    ]
+  },
+  "devDependencies": {
+    "@types/cheerio": "^0.22.31",
+    "@types/html-minifier": "^4.0.5",
+    "@types/jest": "^29.5.14",
+    "@types/json2csv": "^5.0.7",
+    "@types/node": "^18.15.11",
+    "@types/papaparse": "^5.3.7",
+    "@typescript-eslint/eslint-plugin": "^5.57.1",
+    "@typescript-eslint/parser": "^5.57.1",
+    "eslint": "^8.38.0",
+    "eslint-plugin-n8n-nodes-base": "^1.14.0",
+    "gulp": "^4.0.2",
+    "jest": "^29.7.0",
+    "n8n-workflow": "~1.4.0",
+    "prettier": "^2.8.7",
+    "ts-jest": "^29.3.2",
+    "typescript": "~5.0.4"
+  },
+  "dependencies": {
+    "cheerio": "1.0.0-rc.12",
+    "html-minifier": "^4.0.0",
+    "json2csv": "^6.0.0-alpha.2",
+    "papaparse": "^5.4.1"
+  }
+}
