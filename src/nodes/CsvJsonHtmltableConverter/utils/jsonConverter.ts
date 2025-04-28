@@ -1,7 +1,7 @@
-import { Parser } from 'json2csv';
-import { minify } from 'html-minifier';
+import { json2csv } from 'json-2-csv';
 import type { ConversionOptions } from '../types';
 import { DEFAULT_CSV_DELIMITER, DEFAULT_INCLUDE_HEADERS, DEFAULT_PRETTY_PRINT } from './constants';
+import minifyHtml from '@minify-html/node';
 
 /**
  * Parses JSON data into a structured format
@@ -27,12 +27,12 @@ export async function jsonToCsv(jsonStr: string, options: ConversionOptions): Pr
     // For array of objects, use json2csv parser
     if (Array.isArray(jsonData) && jsonData.length > 0 && typeof jsonData[0] === 'object' && !Array.isArray(jsonData[0])) {
       const fields = Object.keys(jsonData[0]);
-      const json2csvParser = new Parser({
-        fields,
-        delimiter,
-        header: includeHeaders
-      });
-      return json2csvParser.parse(jsonData);
+      const optionsCsv = {
+        delimiter: { field: delimiter },
+        prependHeader: includeHeaders,
+        keys: fields
+      };
+      return await json2csv(jsonData, optionsCsv);
     }
 
     // For array of arrays, convert directly
@@ -167,12 +167,12 @@ export async function jsonToHtml(
 
     // Apply minification if pretty print is disabled
     if (!prettyPrint) {
-      html = minify(html, {
-        collapseWhitespace: true,
-        removeComments: true,
-        removeEmptyAttributes: true,
-        removeRedundantAttributes: true
-      });
+      html = minifyHtml.minify(Buffer.from(html), {
+        minify_whitespace: true,
+        keepComments: false,
+        keepSpacesBetweenAttributes: false,
+        keepHtmlAndHeadOpeningTags: false
+      } as unknown as object).toString();
     }
 
     return html;

@@ -1,5 +1,5 @@
 import Papa from 'papaparse';
-import { minify } from 'html-minifier';
+import minifyHtml from '@minify-html/node';
 import type { ConversionOptions } from '../types';
 import { DEFAULT_CSV_DELIMITER, DEFAULT_INCLUDE_HEADERS, DEFAULT_PRETTY_PRINT } from './constants';
 
@@ -81,12 +81,12 @@ export async function csvToHtml(csv: string, options: ConversionOptions): Promis
 
   // Apply minification if pretty print is disabled
   if (!prettyPrint) {
-    html = minify(html, {
-      collapseWhitespace: true,
-      removeComments: true,
-      removeEmptyAttributes: true,
-      removeRedundantAttributes: true
-    });
+    html = minifyHtml.minify(Buffer.from(html), {
+      minify_whitespace: true,
+      keepComments: false,
+      keepSpacesBetweenAttributes: false,
+      keepHtmlAndHeadOpeningTags: false
+    } as unknown as object).toString();
   }
 
   return html;

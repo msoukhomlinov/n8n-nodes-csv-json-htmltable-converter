@@ -1,2 +1,8 @@
 node_modules
 dist
+pnpm-lock.yaml
+.cursor-settings.json
+.cursorcache
+.cursorconfig
+.cursorignore
+.cursorrules

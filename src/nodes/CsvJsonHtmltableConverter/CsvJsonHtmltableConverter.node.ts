@@ -6,12 +6,13 @@ import {
 import { convertData } from './utils/convertData';
 import { validateInput } from './utils/validateInput';
 import { jsonToHtml } from './utils/jsonConverter';
-import { minify } from 'html-minifier';
 import type { FormatType, ConversionOptions, SelectorMode, TablePreset, OperationType } from './types';
 import { nodeDescription } from './nodeDescription';
 import Papa from 'papaparse';
 import { replaceTable } from './utils/replaceTable';
 import { debug } from './utils/debug';
+import minifyHtml from '@minify-html/node';
+import { applyTableStyles } from './utils/applyTableStyles';
 
 export class CsvJsonHtmltableConverter implements INodeType {
   description: INodeTypeDescription = nodeDescription;
@@ -45,7 +46,7 @@ export class CsvJsonHtmltableConverter implements INodeType {
             options.tablePreset = this.getNodeParameter('tablePreset', itemIndex, 'all-tables') as TablePreset;
 
             if (options.tablePreset === 'table-under-heading') {
-              options.headingLevel = this.getNodeParameter('headingLevel', itemIndex, 'h2') as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
+              options.headingLevel = this.getNodeParameter('headingLevel', itemIndex, 1) as number;
               options.headingText = this.getNodeParameter('headingText', itemIndex, '') as string;
               options.tableIndex = this.getNodeParameter('tableIndex', itemIndex, 1) as number;
             }
@@ -93,6 +94,60 @@ export class CsvJsonHtmltableConverter implements INodeType {
           });
         }
 
+        return [returnData];
+      }
+
+      // Handle the Style operation
+      if (operation === 'style') {
+        for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
+          const htmlInput = this.getNodeParameter('htmlInput', itemIndex) as string;
+          const tableClass = this.getNodeParameter('tableClass', itemIndex, '') as string;
+          const tableStyle = this.getNodeParameter('tableStyle', itemIndex, '') as string;
+          const rowStyle = this.getNodeParameter('rowStyle', itemIndex, '') as string;
+          const cellStyle = this.getNodeParameter('cellStyle', itemIndex, '') as string;
+          const zebraStriping = this.getNodeParameter('zebraStriping', itemIndex, false) as boolean;
+          const evenRowColor = this.getNodeParameter('evenRowColor', itemIndex, '') as string;
+          const oddRowColor = this.getNodeParameter('oddRowColor', itemIndex, '') as string;
+          const borderStyle = this.getNodeParameter('borderStyle', itemIndex, '') as string;
+          const borderWidth = this.getNodeParameter('borderWidth', itemIndex, 1) as number;
+          const captionStyle = this.getNodeParameter('captionStyle', itemIndex, '') as string;
+          const captionPosition = this.getNodeParameter('captionPosition', itemIndex, 'top') as string;
+          const borderColor = this.getNodeParameter('borderColor', itemIndex, '') as string;
+          const borderRadius = this.getNodeParameter('borderRadius', itemIndex, '') as string;
+          const borderCollapse = this.getNodeParameter('borderCollapse', itemIndex, '') as string;
+          const tableTextAlign = this.getNodeParameter('tableTextAlign', itemIndex, '') as string;
+          const rowTextAlign = this.getNodeParameter('rowTextAlign', itemIndex, '') as string;
+          const cellTextAlign = this.getNodeParameter('cellTextAlign', itemIndex, '') as string;
+          const outputField = this.getNodeParameter('outputField', itemIndex, 'styledHtml') as string;
+
+          const styleOptions = {
+            tableClass,
+            tableStyle,
+            rowStyle,
+            cellStyle,
+            zebraStriping,
+            evenRowColor,
+            oddRowColor,
+            borderStyle,
+            borderColor,
+            borderRadius,
+            borderCollapse,
+            tableTextAlign,
+            rowTextAlign,
+            cellTextAlign,
+            borderWidth,
+            captionStyle,
+            captionPosition,
+          };
+
+          const styledHtml = applyTableStyles(htmlInput, styleOptions);
+
+          returnData.push({
+            json: {
+              [outputField]: styledHtml,
+            },
+          });
+        }
         return [returnData];
       }
 
@@ -214,12 +269,12 @@ export class CsvJsonHtmltableConverter implements INodeType {
 
             // Minify the HTML if pretty print is disabled
             finalResult = !prettyPrint ?
-              minify(htmlTable, {
-                collapseWhitespace: true,
-                removeComments: true,
-                removeEmptyAttributes: true,
-                removeRedundantAttributes: true
-              }) :
+              minifyHtml.minify(Buffer.from(htmlTable), {
+                minify_whitespace: true,
+                keepComments: false,
+                keepSpacesBetweenAttributes: false,
+                keepHtmlAndHeadOpeningTags: false
+              } as unknown as object).toString() :
               htmlTable;
           } else if (targetFormat === 'csv') {
             // For CSV, use Papa.unparse directly to ensure consistent output
@@ -286,7 +341,7 @@ export class CsvJsonHtmltableConverter implements INodeType {
             options.tablePreset = this.getNodeParameter('tablePreset', itemIndex, 'all-tables') as TablePreset;
 
             if (options.tablePreset === 'table-under-heading') {
-              options.headingLevel = this.getNodeParameter('headingLevel', itemIndex, 'h2') as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
+              options.headingLevel = this.getNodeParameter('headingLevel', itemIndex, 1) as number;
               options.headingText = this.getNodeParameter('headingText', itemIndex, '') as string;
               options.tableIndex = this.getNodeParameter('tableIndex', itemIndex, 1) as number;
             }

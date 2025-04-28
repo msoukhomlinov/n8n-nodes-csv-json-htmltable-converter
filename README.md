@@ -1,21 +1,23 @@
 # n8n-nodes-csv-json-htmltable-converter
 
-This is an n8n community node that provides seamless bidirectional conversion between HTML tables, CSV, and JSON formats.
+This is an n8n community node that provides seamless bidirectional conversion between HTML tables, CSV, and JSON formats, with advanced table selection, replacement, and styling features.
 
 [![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/msoukhomlinov)
 
 ## Key Features
 
-- Supports conversion between HTML Tables, CSV, and JSON formats
-- Input data directly into the node via manual input
-- Options for customizing the conversion:
-  - CSV delimiter
-  - HTML table selector
-  - Include/exclude table headers
-  - Pretty print output
-  - Support for multiple tables/objects
-- Comprehensive input validation
-- Detailed error messages for troubleshooting
+- Convert between HTML Tables, CSV, and JSON formats
+- **Style HTML tables with custom CSS, zebra striping, borders, and captions**
+- **Replace HTML tables with new content (HTML, CSV, or JSON)**
+- Advanced table selection presets:
+  - All Tables, First Table, Last Table
+  - Table With Caption (optionally filter by caption text)
+  - Table Under Heading (numeric heading level, improved index logic)
+  - Custom selectors (Cheerio CSS syntax)
+- n8nObject output for direct workflow integration
+- Comprehensive input validation and error messages
+- UI/UX enhancements for easier configuration
+- Debug logging for development/troubleshooting
 
 ## Installation
 
@@ -28,105 +30,107 @@ npm install n8n-nodes-csv-json-htmltable-converter
 ## Usage
 
 1. Add the "CSV JSON HTMLTable Converter" node to your workflow
-2. Select the source format (HTML, CSV, or JSON)
-3. Select the target format you want to convert to
-4. Enter your data directly in the "Input Data" field
-5. Configure any additional options as needed
-6. Set the name of the output field
-7. Run the workflow to convert your data
+2. Select the operation: **Convert**, **Replace**, or **Style**
+3. Configure the source/target format, input data, and options as needed
+4. For advanced table selection, use presets or custom selectors
+5. Set the output field name
+6. Run the workflow to process your data
 
-## Example Use Cases
+## Operations
 
-- Converting JSON data to HTML tables for reports
-- Converting HTML tables scraped from websites to CSV for data analysis
-- Transforming CSV data to JSON for API consumption
-- Normalizing data between different formats for integration purposes
+### Convert
+Transform data between HTML, CSV, and JSON formats. Use advanced table selection presets or custom selectors for precise extraction.
 
-## Advanced Usage Examples
+### Replace
+Replace an existing HTML table in a document with new content (HTML, CSV, or JSON). Supports all table selection presets and advanced selectors.
 
-### Extracting Tables from Complex HTML Documents
+### Style
+Apply custom styles to HTML tables, including CSS classes, inline styles, zebra striping, border styles, caption styling, and more. Ideal for preparing tables for display, reports, or emails.
 
-When working with complex HTML documents (like web pages) that contain multiple tables, you can use the Element Selector feature to target specific tables based on their location in the document.
+#### Style Operation Parameters
+- **HTML Input:** The HTML string containing the table(s) to style
+- **Table Class:** CSS class to add to `<table>`
+- **Table Style:** Inline CSS for `<table>`
+- **Row Style:** Inline CSS for `<tr>` (optional)
+- **Cell Style:** Inline CSS for `<td>/<th>` (optional)
+- **Zebra Striping:** Enable/disable alternating row colours
+- **Even Row Colour:** Background colour for even rows (if zebra striping enabled)
+- **Odd Row Colour:** Background colour for odd rows (if zebra striping enabled)
+- **Border Style:** Border style for `<table>` (e.g. solid, dashed, none)
+- **Border Width:** Border width for `<table>` (e.g. 1px, 2px)
+- **Caption Style:** Inline CSS for `<caption>` (optional)
+- **Caption Position:** Position of the `<caption>` (top or bottom)
+- **Output Field:** The name of the output field to store the styled HTML (default: `styledHtml`)
 
-For example, if you have an HTML page with tables in different sections:
+#### Example: Styling an HTML Table
 
+Input HTML:
 ```html
-<div class="main-content">
-  <h2>Sales Data</h2>
-  <div class="data-container">
-    <table>
-      <!-- Sales data table -->
-    </table>
-  </div>
-</div>
-<div class="sidebar">
-  <h3>Summary</h3>
-  <table>
-    <!-- Summary table -->
-  </table>
-</div>
+<table>
+  <caption>Monthly Sales</caption>
+  <tr><th>Month</th><th>Sales</th></tr>
+  <tr><td>January</td><td>100</td></tr>
+  <tr><td>February</td><td>120</td></tr>
+</table>
 ```
 
-You can extract just the sales table by using:
-- Element Selector: `.main-content .data-container`
-- Table Selector: `table`
+Style Operation Parameters:
+- Table Class: `my-table`
+- Table Style: `width: 100%; border-collapse: collapse;`
+- Row Style: `font-size: 16px;`
+- Cell Style: `padding: 8px;`
+- Zebra Striping: `true`
+- Even Row Colour: `#f2f2f2`
+- Odd Row Colour: `#ffffff`
+- Border Style: `solid`
+- Border Width: `1px`
+- Caption Style: `font-weight: bold; color: #333;`
+- Caption Position: `top`
 
-Or extract just the summary table by using:
-- Element Selector: `.sidebar`
-- Table Selector: `table`
+Output HTML:
+```html
+<table class="my-table" style="width: 100%; border-collapse: collapse; border-style: solid; border-width: 1px;">
+  <caption style="font-weight: bold; color: #333; caption-side: top;">Monthly Sales</caption>
+  <tr style="font-size: 16px;">
+    <th style="padding: 8px; border-style: solid; border-width: 1px;">Month</th>
+    <th style="padding: 8px; border-style: solid; border-width: 1px;">Sales</th>
+  </tr>
+  <tr style="font-size: 16px; background-color: #f2f2f2;">
+    <td style="padding: 8px; border-style: solid; border-width: 1px;">January</td>
+    <td style="padding: 8px; border-style: solid; border-width: 1px;">100</td>
+  </tr>
+  <tr style="font-size: 16px; background-color: #ffffff;">
+    <td style="padding: 8px; border-style: solid; border-width: 1px;">February</td>
+    <td style="padding: 8px; border-style: solid; border-width: 1px;">120</td>
+  </tr>
+</table>
+```
 
-This feature utilizes Cheerio's CSS selector capabilities, supporting selectors like:
-- Class selectors (`.classname`)
-- ID selectors (`#id`)
-- Descendant selectors (`.parent .child`)
-- Attribute selectors (`[data-type="sales"]`)
-- Pseudo-class selectors (`:first-child`, `:contains("text")`)
-
-## HTML Table Selection Options
-
-When converting from HTML, you can now choose between two selection modes to make finding tables easier:
-
-### Simple Mode (Recommended for beginners)
-
-Simple mode provides preset patterns for common table scenarios:
+### Table Selection Presets
 
 - **All Tables**: Finds all table elements in the document
 - **First Table Only**: Finds only the first table in the document
-- **Tables With Headers**: Finds tables that have header rows (th elements)
-- **Tables in Main Content**: Finds tables in main content areas (main, article, etc.)
-- **Data Tables**: Finds tables with class containing "data" or with data attributes
-- **Table Under Heading**: Finds a specific table (1st-10th) that appears after a heading (with configurable heading level and text)
+- **Last Table**: Finds the last table in the document
+- **Table With Caption**: Finds a table with a <caption> element, optionally filtered by caption text. Caption is included in output (JSON, CSV, HTML).
+- **Table Under Heading**: Finds a table after a heading of a specific numeric level (1–999) and (optionally) containing specific text. Table index logic only counts direct sibling tables after the heading.
 - **Custom**: Use your own custom selector (for advanced users)
 
-### Advanced Mode
+### Output and n8nObject Format
 
-Advanced mode gives you more control with two separate selectors:
+- **n8nObject output:** Directly outputs JavaScript objects for use in n8n workflows. Single-item arrays are unwrapped; multi-item arrays are wrapped in the output field.
+- **Output field:** All results are wrapped in the specified output field (default: `convertedData`), except for n8nObject output, which is always in the `json` property.
+- **Chaining:** Improved detection and handling of n8nObject input/output for seamless chaining between nodes.
 
-1. **HTML Element Selector**: First selects elements containing tables
-2. **HTML Table Selector**: Then finds tables within those elements
+### Breaking Changes and Migration Notes
 
-This is useful for complex HTML documents where you need precise control over which tables are selected.
+- **Removed deprecated presets:** 'Tables With Headers', 'Tables in Main Content', and 'Data Tables' presets have been removed. Use supported presets instead.
+- **Table Under Heading:** Heading level is now a numeric input (1–999). Table index logic only counts direct sibling tables after the heading.
+- **Output format changes:** Output wrapping and field naming are now consistent across all formats. n8nObject output is always in the 'json' property.
+- **Migration:** Review your workflows for use of removed presets and update to supported options. If using Table Under Heading, ensure headingLevel and tableIndex parameters are set correctly. Review output field usage and update downstream nodes if needed.
 
-### Tips for Using Table Selectors
+### Debug Logging
 
-- Start with Simple mode and try different presets
-- If you need more control, switch to Advanced mode
-- For complex websites, use browser developer tools to identify the correct selectors
-- Test your selectors incrementally to make sure they work as expected
-- For more information about CSS selectors supported by Cheerio, see the [Cheerio documentation](https://cheerio.js.org/docs/basics/selecting)
-
-#### Example Selectors
-
-```
-// Simple selectors
-table                     // All tables
-table.data                // Tables with class "data"
-#main-content table       // Tables inside an element with ID "main-content"
-
-// Advanced selectors
-.content                  // Element Selector: Find elements with class "content"
-table.results             // Table Selector: Find tables with class "results" inside those elements
-```
+- Optional debug logging is available for development and troubleshooting. Set `NODE_ENV` to `development` to enable detailed logs.
 
 ## License
 
@@ -135,96 +139,3 @@ table.results             // Table Selector: Find tables with class "results" in
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-yellow.svg)](https://buymeacoffee.com/msoukhomlinov)
 
 [n8n](https://n8n.io/) is a [fair-code licensed](https://docs.n8n.io/reference/license/) workflow automation platform.
-
-[Installation](#installation)  
-[Operations](#operations)  
-[Compatibility](#compatibility)  
-[Resources](#resources)  
-[Version History](#version-history)  
-
-## Installation
-
-Follow the [installation guide](https://docs.n8n.io/integrations/community-nodes/installation/) in the n8n community nodes documentation.
-
-### Install from n8n
-
-1. Go to **Settings > Community Nodes**
-2. Select **Install**
-3. Enter `n8n-nodes-csv-json-htmltable-converter` in **Enter npm package name**
-4. Click **Install**
-
-### Install manually
-
-Install node:
-
-```bash
-cd ~/.n8n/custom
-npm install n8n-nodes-csv-json-htmltable-converter
-```
-
-## Operations
-
-The Table Converter node provides the following operations:
-
-- Convert HTML tables to CSV
-- Convert HTML tables to JSON
-- Convert CSV to HTML tables
-- Convert CSV to JSON
-- Convert JSON to HTML tables
-- Convert JSON to CSV
-
-### Node Parameters
-
-#### Source Format
-
-The format of the input data:
-- HTML
-- CSV
-- JSON
-
-#### Target Format
-
-The format to convert the data to:
-- HTML
-- CSV
-- JSON
-
-#### Input Data
-
-The data to be converted in the specified source format.
-
-#### Options
-
-##### CSV Options
-- CSV Delimiter: The character to use as a delimiter for CSV data (default: `,`)
-
-##### HTML Options
-- HTML Table Selector: CSS selector to identify HTML tables (default: `table`). This selects tables within the context of the element selector.
-- HTML Element Selector: CSS selector to identify the HTML element containing tables (default: `html`). This enables extracting tables from specific parts of an HTML document using Cheerio's CSS selector syntax.
-
-**Note:** The HTML conversion works by first selecting elements that match the `elementSelector`, and then finding tables within those elements using the `tableSelector`. This two-step approach provides fine-grained control over which tables to extract from complex HTML documents.
-
-##### General Options
-- Include Table Headers: Whether to include table headers in the converted output (default: `true`)
-- Pretty Print Output: Format the output with proper indentation and spacing (for JSON and HTML)
-- Multiple Tables/Objects: Whether the input contains multiple tables or JSON objects
-
-#### Output Field
-
-The name of the field to store the converted data in the output.
-
-## Resources
-
-* [n8n community nodes documentation](https://docs.n8n.io/integrations/community-nodes/)
-* [n8n node development documentation](https://docs.n8n.io/integrations/creating-nodes/)
-
-
-
-## Support
-
-If you find this node helpful and would like to support its development:
-[![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/msoukhomlinov)
-
-## License
-
-This project is licensed under the [MIT License](LICENSE.md).

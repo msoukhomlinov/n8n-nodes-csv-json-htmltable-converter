@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
 import type { ConversionOptions, TablePreset } from '../types';
-import { minify } from 'html-minifier';
+import minifyHtml from '@minify-html/node';
 import { DEFAULT_PRETTY_PRINT } from './constants';
 
 /**
@@ -16,17 +16,19 @@ function getPresetSelectors(preset: TablePreset, options: ConversionOptions): { 
     case 'last-table':
       return { elementSelector: 'html', tableSelector: 'table:last-of-type' };
     case 'table-under-heading': {
-      // Get the heading level (default to h2 if not specified)
-      const headingLevel = options.headingLevel || 'h2';
+      // Get the heading level (default to 1 if not specified)
+      let headingLevel = typeof options.headingLevel === 'number' ? options.headingLevel : 1;
+      if (headingLevel < 1 || headingLevel > 999) headingLevel = 1;
+      const headingSelector = `h${headingLevel}`;
       // Get the table index (default to 1 if not specified)
       const tableIndex = options.tableIndex || 1;
-
       // For table-under-heading, we'll return a special value that will be handled
       // in the findTable function with a custom implementation
       return {
         elementSelector: 'special:table-under-heading',
         tableSelector: JSON.stringify({
-          headingLevel,
+          headingLevel: headingLevel,
+          headingSelector,
           headingText: options.headingText?.trim() || '',
           tableIndex
         })
@@ -35,6 +37,15 @@ function getPresetSelectors(preset: TablePreset, options: ConversionOptions): { 
     case 'custom':
       // For custom, we'll use the provided tableSelector
       return { elementSelector: 'html', tableSelector: '' };
+    case 'table-with-caption': {
+      // For table-with-caption, return a special selector and pass captionText
+      return {
+        elementSelector: 'special:table-with-caption',
+        tableSelector: JSON.stringify({
+          captionText: options.captionText?.trim() || '',
+        }),
+      };
+    }
     default:
       return { elementSelector: 'html', tableSelector: 'table' };
   }
@@ -73,60 +84,64 @@ function findTable($: cheerio.Root, options: ConversionOptions): cheerio.Element
     if (elementSelector === 'special:table-under-heading') {
       const config = JSON.parse(tableSelector);
       const headingLevel = config.headingLevel;
+      const headingSelector = config.headingSelector || `h${headingLevel}`;
       const headingText = config.headingText;
       const tableIndex = config.tableIndex;
-
-      // Find all tables that come after the specified heading
-      const tablesAfterHeading: cheerio.Element[] = [];
-
+      // Validate headingLevel
+      if (typeof headingLevel !== 'number' || headingLevel < 1 || headingLevel > 999) {
+        throw new Error('Heading Level must be a number between 1 and 999.');
+      }
       // Find all headings with the specified text
-      $(headingLevel).each((_, heading) => {
+      let foundTable = null;
+      $(headingSelector).each((_, heading) => {
         const headingContent = $(heading).text().trim();
-
-        // Check if the heading contains the specified text (case-insensitive)
         if (headingText === '' || headingContent.toLowerCase().includes(headingText.toLowerCase())) {
-          // Find all tables that come after this heading in the document
-          let currentElement = heading;
-          let nextElement = currentElement.next;
-
-          while (nextElement !== null) {
-            // If we hit another heading of the same or higher level, stop
-            if (nextElement.type === 'tag' &&
-                nextElement.name &&
-                nextElement.name.match(/^h[1-6]$/) &&
-                Number.parseInt(nextElement.name.substring(1), 10) <= Number.parseInt(headingLevel.substring(1), 10)) {
-              break;
-            }
-
-            // If current element is a table or contains tables, add them
-            if (nextElement.type === 'tag') {
-              if (nextElement.name === 'table') {
-                tablesAfterHeading.push(nextElement);
-              } else {
-                $(nextElement).find('table').each((_, table) => {
-                  tablesAfterHeading.push(table);
-                });
-              }
-            }
-
-            currentElement = nextElement;
-            nextElement = currentElement.next;
+          // Use nextAll('table') to get all direct sibling tables after the heading
+          const tablesAfterHeading = $(heading).nextAll('table');
+          if (tablesAfterHeading.length >= tableIndex) {
+            foundTable = tablesAfterHeading[tableIndex - 1];
+            return false; // Stop after finding the correct heading and table
           }
         }
+        return true;
+      });
+      if (foundTable) {
+        return foundTable;
+      }
+      // No tables found after matching headings
+      throw new Error(`No tables found after heading level h${headingLevel} containing "${headingText || 'any text'}" at index ${tableIndex}. Please check your HTML structure or try another preset.`);
+    }
+
+    // Special handling for table-with-caption preset
+    if (elementSelector === 'special:table-with-caption') {
+      const config = JSON.parse(tableSelector);
+      const captionText = config.captionText;
+      let foundTable: cheerio.Element | null = null;
+
+      $('table').each((_, table) => {
+        const caption = $(table).find('caption').first();
+
+        if (caption.length > 0) {
+          const captionContent = caption.text().trim();
+
+          if (
+            captionText === '' ||
+            captionContent.toLowerCase().includes(captionText.toLowerCase())
+          ) {
+            foundTable = table;
+            return false; // Break out of .each()
+          }
+        }
+
+        return true; // Continue the .each() loop
       });
 
-      // Return the table at the specified index (if available)
-      if (tablesAfterHeading.length >= tableIndex) {
-        return tablesAfterHeading[tableIndex - 1];
+      if (!foundTable) {
+        throw new Error(
+          `No tables found with <caption> containing "${captionText || 'any text'}". Please check your HTML or try another preset.`
+        );
       }
-
-      // If table index is out of range but we found some tables, use the first one
-      if (tablesAfterHeading.length > 0) {
-        return tablesAfterHeading[0];
-      }
-
-      // No tables found after matching headings
-      throw new Error(`No tables found after heading ${headingLevel} containing "${headingText || 'any text'}". Please check your HTML structure or try another preset.`);
+      return foundTable;
     }
 
     // If elementSelector is empty, use the root element
@@ -212,12 +227,12 @@ export async function replaceTable(
 
     // Apply minification if pretty print is disabled
     if (!prettyPrint) {
-      result = minify(result, {
-        collapseWhitespace: true,
-        removeComments: true,
-        removeEmptyAttributes: true,
-        removeRedundantAttributes: true
-      });
+      result = minifyHtml.minify(Buffer.from(result), {
+        minify_whitespace: true,
+        keepComments: false,
+        keepSpacesBetweenAttributes: false,
+        keepHtmlAndHeadOpeningTags: false
+      } as unknown as object).toString();
     }
 
     return result;

@@ -1,4 +1,5 @@
 import type { INodeTypeDescription } from 'n8n-workflow';
+import { NodeConnectionType } from 'n8n-workflow';
 import { FORMAT_OPTIONS, OPERATION_OPTIONS } from './utils/constants';
 
 export const nodeDescription: INodeTypeDescription = {
@@ -7,13 +8,14 @@ export const nodeDescription: INodeTypeDescription = {
   icon: 'file:csvJsonHtmltableConverter.svg',
   group: ['transform'],
   version: 1,
+  usableAsTool: true,
   subtitle: '={{ $parameter["operation"] === "convert" ? $parameter["sourceFormat"] + " to " + $parameter["targetFormat"] : "Replace HTML Table" }}',
   description: 'A comprehensive node that provides seamless bidirectional conversion between HTML tables, CSV, and JSON formats',
   defaults: {
     name: 'CSV JSON HTMLTable Converter',
   },
-  inputs: ['main'],
-  outputs: ['main'],
+  inputs: [NodeConnectionType.Main],
+  outputs: [NodeConnectionType.Main],
   properties: [
     {
       displayName: 'Operation',
@@ -142,6 +144,376 @@ export const nodeDescription: INodeTypeDescription = {
         },
       },
     },
+    // Style Operation Help Text
+    /**
+     * Style Operation:
+     * Apply custom styles to HTML tables. This operation does not convert data, but modifies the appearance of tables using CSS classes, inline styles, zebra striping, borders, and caption positioning.
+     *
+     * Parameters:
+     * - HTML Input: The HTML string containing the table(s) to style
+     * - Table Class: CSS class to add to <table>
+     * - Table Style: Inline CSS for <table>
+     * - Row Style: Inline CSS for <tr> (optional)
+     * - Cell Style: Inline CSS for <td>/<th> (optional)
+     * - Zebra Striping: Enable/disable alternating row colours
+     * - Even Row Colour: Background colour for even rows (if zebra striping enabled)
+     * - Odd Row Colour: Background colour for odd rows (if zebra striping enabled)
+     * - Border Style: Border style for <table>, <td>, <th> (e.g. solid, dashed, none)
+     * - Border Width: Border width for <table>, <td>, <th> (e.g. 1px, 2px)
+     * - Caption Style: Inline CSS for <caption> (optional)
+     * - Caption Position: Position of the <caption> (top or bottom)
+     * - Output Field: The name of the output field to store the styled HTML (default: styledHtml)
+     *
+     * Usage Tip: Use the Style operation to prepare HTML tables for display, reports, or emails. Combine with Convert or Replace operations for end-to-end data transformation and presentation.
+     */
+    // Style Operation Parameters
+    {
+      displayName: 'HTML Input',
+      name: 'htmlInput',
+      type: 'string',
+      default: '',
+      typeOptions: {
+        rows: 10,
+      },
+      description: 'The HTML containing the table(s) to style',
+      required: true,
+      displayOptions: {
+        show: {
+          operation: ['style'],
+        },
+      },
+    },
+    // Table Class toggle
+    {
+      displayName: 'Show Table Class',
+      name: 'showTableClass',
+      type: 'boolean',
+      default: true,
+      description: 'Show the Table Class option',
+      displayOptions: {
+        show: {
+          operation: ['style'],
+        },
+      },
+    },
+    {
+      displayName: 'Table Class',
+      name: 'tableClass',
+      type: 'string',
+      default: '',
+      description: 'CSS class to add to <table>',
+      displayOptions: {
+        show: {
+          operation: ['style'],
+          showTableClass: [true],
+        },
+      },
+    },
+    // Table Style toggle
+    {
+      displayName: 'Show Table Style',
+      name: 'showTableStyle',
+      type: 'boolean',
+      default: true,
+      description: 'Show the Table Style option',
+      displayOptions: {
+        show: {
+          operation: ['style'],
+        },
+      },
+    },
+    // Table Text Align (first in Table Style section)
+    {
+      displayName: 'Table Text Align',
+      name: 'tableTextAlign',
+      type: 'options',
+      options: [
+        { name: 'Default (no override)', value: '' },
+        { name: 'Left', value: 'left' },
+        { name: 'Center', value: 'center' },
+        { name: 'Right', value: 'right' },
+        { name: 'Justify', value: 'justify' },
+        { name: 'Start', value: 'start' },
+        { name: 'End', value: 'end' },
+      ],
+      default: '',
+      description: 'Set the text-align property for the <table> element. Affects horizontal alignment of all content in the table.',
+      displayOptions: {
+        show: {
+          operation: ['style'],
+          showTableStyle: [true],
+        },
+      },
+    },
+    // Table Style
+    {
+      displayName: 'Table Style',
+      name: 'tableStyle',
+      type: 'string',
+      default: '',
+      description: 'Full custom CSS for the <table> element. Use this to set multiple or advanced styles (e.g. background, width, font). Does not affect borders unless you include border properties here.',
+      displayOptions: {
+        show: {
+          operation: ['style'],
+          showTableStyle: [true],
+        },
+      },
+    },
+    // Row Style toggle
+    {
+      displayName: 'Show Row Style',
+      name: 'showRowStyle',
+      type: 'boolean',
+      default: true,
+      description: 'Show the Row Style option',
+      displayOptions: {
+        show: {
+          operation: ['style'],
+        },
+      },
+    },
+    // Row Text Align (first in Row Style section)
+    {
+      displayName: 'Row Text Align',
+      name: 'rowTextAlign',
+      type: 'options',
+      options: [
+        { name: 'Default (no override)', value: '' },
+        { name: 'Left', value: 'left' },
+        { name: 'Center', value: 'center' },
+        { name: 'Right', value: 'right' },
+        { name: 'Justify', value: 'justify' },
+        { name: 'Start', value: 'start' },
+        { name: 'End', value: 'end' },
+      ],
+      default: '',
+      description: 'Set the text-align property for all <tr> elements. Affects horizontal alignment of content in each row.',
+      displayOptions: {
+        show: {
+          operation: ['style'],
+          showRowStyle: [true],
+        },
+      },
+    },
+    // Row Style
+    {
+      displayName: 'Row Style',
+      name: 'rowStyle',
+      type: 'string',
+      default: '',
+      description: 'Custom CSS for all <tr> (table row) elements. Use to set row background, font, or spacing. Does not affect borders or cells individually.',
+      displayOptions: {
+        show: {
+          operation: ['style'],
+          showRowStyle: [true],
+        },
+      },
+    },
+    // Cell Style toggle
+    {
+      displayName: 'Show Cell Style',
+      name: 'showCellStyle',
+      type: 'boolean',
+      default: true,
+      description: 'Show the Cell Style option',
+      displayOptions: {
+        show: {
+          operation: ['style'],
+        },
+      },
+    },
+    // Cell Text Align (first in Cell Style section)
+    {
+      displayName: 'Cell Text Align',
+      name: 'cellTextAlign',
+      type: 'options',
+      options: [
+        { name: 'Default (no override)', value: '' },
+        { name: 'Left', value: 'left' },
+        { name: 'Center', value: 'center' },
+        { name: 'Right', value: 'right' },
+        { name: 'Justify', value: 'justify' },
+        { name: 'Start', value: 'start' },
+        { name: 'End', value: 'end' },
+      ],
+      default: '',
+      description: 'Set the text-align property for all <td> and <th> elements. Affects horizontal alignment of content in each cell.',
+      displayOptions: {
+        show: {
+          operation: ['style'],
+          showCellStyle: [true],
+        },
+      },
+    },
+    // Cell Style
+    {
+      displayName: 'Cell Style',
+      name: 'cellStyle',
+      type: 'string',
+      default: '',
+      description: 'Custom CSS for all <td> and <th> (table cell) elements. Use to set cell background, font, or alignment. Does not affect row or table styles.',
+      displayOptions: {
+        show: {
+          operation: ['style'],
+          showCellStyle: [true],
+        },
+      },
+    },
+    // Border Style toggle
+    {
+      displayName: 'Show Border Style',
+      name: 'showBorderStyle',
+      type: 'boolean',
+      default: true,
+      description: 'Show the Border Style and Border Width options',
+      displayOptions: {
+        show: {
+          operation: ['style'],
+        },
+      },
+    },
+    {
+      displayName: 'Border Style',
+      name: 'borderStyle',
+      type: 'options',
+      options: [
+        { name: 'Default (no style)', value: '' },
+        { name: 'Solid', value: 'solid' },
+        { name: 'Dashed', value: 'dashed' },
+        { name: 'Dotted', value: 'dotted' },
+        { name: 'Double', value: 'double' },
+        { name: 'Groove', value: 'groove' },
+        { name: 'Ridge', value: 'ridge' },
+        { name: 'Inset', value: 'inset' },
+        { name: 'Outset', value: 'outset' },
+        { name: 'None', value: 'none' },
+        { name: 'Hidden', value: 'hidden' },
+      ],
+      default: '',
+      description: 'Quickly set the border style for the <table> only. Does not affect rows or cells. For advanced border control, use Table Style.',
+      displayOptions: {
+        show: {
+          operation: ['style'],
+          showBorderStyle: [true],
+        },
+      },
+    },
+    {
+      displayName: 'Border Colour',
+      name: 'borderColor',
+      type: 'color',
+      default: '',
+      description: 'Set the border colour for the <table> only. Does not affect rows or cells. For advanced border control, use Table Style.',
+      displayOptions: {
+        show: {
+          operation: ['style'],
+          showBorderStyle: [true],
+        },
+      },
+    },
+    {
+      displayName: 'Border Radius',
+      name: 'borderRadius',
+      type: 'string',
+      default: '',
+      description: 'Set the border radius for the <table> (e.g. 4px, 0.5em). Leave blank for no rounding.',
+      displayOptions: {
+        show: {
+          operation: ['style'],
+          showBorderStyle: [true],
+        },
+      },
+    },
+    {
+      displayName: 'Border Collapse',
+      name: 'borderCollapse',
+      type: 'options',
+      options: [
+        { name: 'Default (no override)', value: '' },
+        { name: 'Separate', value: 'separate' },
+        { name: 'Collapse', value: 'collapse' },
+      ],
+      default: '',
+      description: 'Set the border-collapse property for the <table>. Use "collapse" for joined borders, "separate" for spacing between cells.',
+      displayOptions: {
+        show: {
+          operation: ['style'],
+          showBorderStyle: [true],
+        },
+      },
+    },
+    {
+      displayName: 'Border Width',
+      name: 'borderWidth',
+      type: 'number',
+      typeOptions: {
+        minValue: 0,
+        step: 1,
+      },
+      default: 1,
+      description: 'Sets the border width for the <table> using the HTML border attribute and as a CSS style. Value is interpreted as pixels (px) in the style.',
+      displayOptions: {
+        show: {
+          operation: ['style'],
+          showBorderStyle: [true],
+        },
+      },
+    },
+    // Caption Style toggle
+    {
+      displayName: 'Show Caption Style',
+      name: 'showCaptionStyle',
+      type: 'boolean',
+      default: true,
+      description: 'Show the Caption Style and Caption Position options',
+      displayOptions: {
+        show: {
+          operation: ['style'],
+        },
+      },
+    },
+    {
+      displayName: 'Caption Style',
+      name: 'captionStyle',
+      type: 'string',
+      default: '',
+      description: 'Inline CSS for <caption> (optional)',
+      displayOptions: {
+        show: {
+          operation: ['style'],
+          showCaptionStyle: [true],
+        },
+      },
+    },
+    {
+      displayName: 'Caption Position',
+      name: 'captionPosition',
+      type: 'options',
+      options: [
+        { name: 'Top', value: 'top' },
+        { name: 'Bottom', value: 'bottom' },
+      ],
+      default: 'top',
+      description: 'Position of the <caption> (top or bottom)',
+      displayOptions: {
+        show: {
+          operation: ['style'],
+          showCaptionStyle: [true],
+        },
+      },
+    },
+    {
+      displayName: 'Output Field',
+      name: 'outputField',
+      type: 'string',
+      default: 'styledHtml',
+      description: 'The name of the output field to store the styled HTML',
+      displayOptions: {
+        show: {
+          operation: ['style'],
+        },
+      },
+    },
     // Table Selection Parameters (shared by both operations)
     {
       displayName: 'Table Selection Mode',
@@ -164,6 +536,7 @@ export const nodeDescription: INodeTypeDescription = {
       displayOptions: {
         hide: {
           sourceFormat: ['csv', 'json', 'n8nObject'],
+          operation: ['style'],
         },
       },
     },
@@ -193,6 +566,11 @@ export const nodeDescription: INodeTypeDescription = {
           description: 'Find a specific table that appears after a heading',
         },
         {
+          name: 'Table with Caption',
+          value: 'table-with-caption',
+          description: 'Find a table with a <caption> element. Optionally filter by caption text. The caption will be included in the output (JSON property, CSV comment, HTML <caption>).',
+        },
+        {
           name: 'Custom',
           value: 'custom',
           description: 'Use a custom selector expression',
@@ -213,17 +591,13 @@ export const nodeDescription: INodeTypeDescription = {
     {
       displayName: 'Heading Level',
       name: 'headingLevel',
-      type: 'options',
-      options: [
-        { name: 'H1', value: 'h1' },
-        { name: 'H2', value: 'h2' },
-        { name: 'H3', value: 'h3' },
-        { name: 'H4', value: 'h4' },
-        { name: 'H5', value: 'h5' },
-        { name: 'H6', value: 'h6' },
-      ],
-      default: 'h2',
-      description: 'The heading level to search for (h1-h6)',
+      type: 'number',
+      typeOptions: {
+        minValue: 1,
+        maxValue: 999,
+      },
+      default: 1,
+      description: 'The heading level to search for (e.g. 1 = <h1>, 2 = <h2>, ... up to 999)',
       displayOptions: {
         show: {
           selectorMode: ['simple'],
@@ -298,7 +672,6 @@ export const nodeDescription: INodeTypeDescription = {
       description: 'CSS selector to identify HTML tables. <a href="https://cheerio.js.org/docs/basics/selecting" target="_blank">Learn more about Cheerio selectors</a>',
       displayOptions: {
         show: {
-          operation: ['replace'],
           selectorMode: ['advanced'],
         },
         hide: {
@@ -367,14 +740,20 @@ export const nodeDescription: INodeTypeDescription = {
       },
     },
     {
-      displayName: 'Output Field',
-      name: 'outputField',
+      displayName: 'Caption Text',
+      name: 'captionText',
       type: 'string',
-      default: 'convertedData',
-      description: 'The name of the output field to store the converted or replaced data',
+      default: '',
+      description: 'Text content the <caption> should contain (case-insensitive, partial match). Leave empty to match any caption. Used only with the Table with Caption preset.',
       displayOptions: {
+        show: {
+          selectorMode: ['simple'],
+          tablePreset: ['table-with-caption'],
+        },
         hide: {
-          targetFormat: ['n8nObject'],
+          sourceFormat: ['csv', 'json', 'n8nObject'],
+          selectorMode: ['advanced'],
+          tablePreset: ['all-tables', 'first-table', 'last-table', 'table-under-heading', 'custom'],
         },
       },
     },
