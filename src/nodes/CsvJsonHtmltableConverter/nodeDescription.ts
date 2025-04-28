@@ -7,7 +7,7 @@ export const nodeDescription: INodeTypeDescription = {
   name: 'csvJsonHtmltableConverter',
   icon: 'file:csvJsonHtmltableConverter.svg',
   group: ['transform'],
-  version: 1.1,
+  version: 1,
   usableAsTool: true,
   subtitle: '={{ $parameter["operation"] === "convert" ? $parameter["sourceFormat"] + " to " + $parameter["targetFormat"] : "Replace HTML Table" }}',
   description: 'A comprehensive node that provides seamless bidirectional conversion between HTML tables, CSV, and JSON formats',
