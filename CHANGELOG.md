@@ -2,6 +2,11 @@
 
 All notable changes to the n8n-nodes-csv-json-htmltable-converter package will be documented in this file.
 
+## [1.1.0] - 2025-05-29
+
+### Fixed
+- Corrected the version in the node file (was incorrectly set to 1 instead of 1.1), which caused issues with upgrading to the new version. No other changes.
+
 ## [1.0.0] - 2025-05-28
 
 ### Added

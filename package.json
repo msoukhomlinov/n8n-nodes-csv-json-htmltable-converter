@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-csv-json-htmltable-converter",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A comprehensive n8n node for seamless bidirectional conversion, replacement, and styling of HTML tables, CSV, and JSON formats. Features advanced table selection (including Table With Caption, Table Under Heading, Last Table), Style and Replace operations, n8nObject output for direct workflow integration, robust validation, customisable formatting, and improved chaining for ETL, web scraping, and data transformation workflows.",
   "keywords": [
     "n8n",
