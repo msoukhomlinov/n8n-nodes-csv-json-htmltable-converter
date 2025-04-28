@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
 import Papa from 'papaparse';
-import { minify } from 'html-minifier';
+import minifyHtml from '@minify-html/node';
 import type { ConversionOptions, TableData, TablePreset } from '../types';
 import { DEFAULT_INCLUDE_HEADERS, DEFAULT_PRETTY_PRINT } from './constants';
 import { debug, debugSample } from './debug';
@@ -17,17 +17,17 @@ function getPresetSelectors(preset: TablePreset, options: ConversionOptions): { 
     case 'last-table':
       return { elementSelector: 'html', tableSelector: 'table:last-of-type' };
     case 'table-under-heading': {
-      // Get the heading level (default to h2 if not specified)
-      const headingLevel = options.headingLevel || 'h2';
+      // Get the heading level (default to 1 if not specified)
+      let headingLevel = typeof options.headingLevel === 'number' ? options.headingLevel : 1;
+      if (headingLevel < 1 || headingLevel > 999) headingLevel = 1;
+      const headingSelector = `h${headingLevel}`;
       // Get the table index (default to 1 if not specified)
       const tableIndex = options.tableIndex || 1;
-
-      // For table-under-heading, we'll return a special value that will be handled
-      // in the extractTableData function with a custom implementation
       return {
         elementSelector: 'special:table-under-heading',
         tableSelector: JSON.stringify({
-          headingLevel,
+          headingLevel: headingLevel,
+          headingSelector,
           headingText: options.headingText?.trim() || '',
           tableIndex
         })
@@ -36,6 +36,15 @@ function getPresetSelectors(preset: TablePreset, options: ConversionOptions): { 
     case 'custom':
       // For custom, we'll use the provided tableSelector
       return { elementSelector: 'html', tableSelector: '' };
+    case 'table-with-caption': {
+      // For table-with-caption, return a special selector and pass captionText
+      return {
+        elementSelector: 'special:table-with-caption',
+        tableSelector: JSON.stringify({
+          captionText: options.captionText?.trim() || '',
+        }),
+      };
+    }
     default:
       return { elementSelector: 'html', tableSelector: 'table' };
   }
@@ -48,6 +57,7 @@ function extractTableData(html: string, options: ConversionOptions): TableData[]
   const $ = cheerio.load(html);
   const tables: TableData[] = [];
   const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
+  const multipleItems = options.multipleItems !== undefined ? options.multipleItems : false;
 
   debug('htmlConverter.ts', `extractTableData - includeTableHeaders: ${includeHeaders}`, { originalOption: options.includeTableHeaders, default: DEFAULT_INCLUDE_HEADERS });
 
@@ -79,59 +89,64 @@ function extractTableData(html: string, options: ConversionOptions): TableData[]
     if (elementSelector === 'special:table-under-heading') {
       const config = JSON.parse(tableSelector);
       const headingLevel = config.headingLevel;
+      const headingSelector = config.headingSelector || `h${headingLevel}`;
       const headingText = config.headingText;
       const tableIndex = config.tableIndex;
-
-      // Find all tables that come after the specified heading
-      const tablesAfterHeading: cheerio.Element[] = [];
-
+      // Validate headingLevel
+      if (typeof headingLevel !== 'number' || headingLevel < 1 || headingLevel > 999) {
+        throw new Error('Heading Level must be a number between 1 and 999.');
+      }
       // Find all headings with the specified text
-      $(headingLevel).each((_, heading) => {
+      let foundTable = null;
+      $(headingSelector).each((_, heading) => {
         const headingContent = $(heading).text().trim();
-
-        // Check if the heading contains the specified text (case-insensitive)
         if (headingText === '' || headingContent.toLowerCase().includes(headingText.toLowerCase())) {
-          // Find all tables that come after this heading in the document
-          let currentElement = heading;
-          let nextElement = currentElement.next;
+          // Use nextAll('table') to get all direct sibling tables after the heading
+          const tablesAfterHeading = $(heading).nextAll('table');
+          if (tablesAfterHeading.length >= tableIndex) {
+            foundTable = tablesAfterHeading[tableIndex - 1];
+            return false; // Stop after finding the correct heading and table
+          }
+        }
+        return true;
+      });
+      if (foundTable) {
+        processTable($, foundTable, includeHeaders, tables);
+      } else {
+        throw new Error(`No tables found after heading level h${headingLevel} containing "${headingText || 'any text'}" at index ${tableIndex}. Please check your HTML structure or try another preset.`);
+      }
+      return tables;
+    }
 
-          while (nextElement !== null) {
-            // If we hit another heading of the same or higher level, stop
-            if (nextElement.type === 'tag' &&
-                nextElement.name &&
-                nextElement.name.match(/^h[1-6]$/) &&
-                Number.parseInt(nextElement.name.substring(1), 10) <= Number.parseInt(headingLevel.substring(1), 10)) {
-              break;
-            }
-
-            // If current element is a table or contains tables, add them
-            if (nextElement.type === 'tag') {
-              if (nextElement.name === 'table') {
-                tablesAfterHeading.push(nextElement);
-              } else {
-                $(nextElement).find('table').each((_, table) => {
-                  tablesAfterHeading.push(table);
-                });
-              }
-            }
-
-            currentElement = nextElement;
-            nextElement = currentElement.next;
+    // Special handling for table-with-caption preset
+    if (elementSelector === 'special:table-with-caption') {
+      const config = JSON.parse(tableSelector);
+      const captionText = config.captionText;
+      const matchingTables: cheerio.Element[] = [];
+      $('table').each((_, table) => {
+        const caption = $(table).find('caption').first();
+        if (caption.length > 0) {
+          const captionContent = caption.text().trim();
+          if (
+            captionText === '' ||
+            captionContent.toLowerCase().includes(captionText.toLowerCase())
+          ) {
+            matchingTables.push(table);
           }
         }
       });
-
-      // Process the table at the specified index (if available)
-      if (tablesAfterHeading.length >= tableIndex) {
-        processTable($, tablesAfterHeading[tableIndex - 1], includeHeaders, tables);
-      } else if (tablesAfterHeading.length > 0) {
-        // If table index is out of range but we found some tables, use the first one
-        processTable($, tablesAfterHeading[0], includeHeaders, tables);
-      } else {
-        // No tables found after matching headings
-        throw new Error(`No tables found after heading ${headingLevel} containing "${headingText || 'any text'}". Please check your HTML structure or try another preset.`);
+      if (matchingTables.length === 0) {
+        throw new Error(
+          `No tables found with <caption> containing "${captionText || 'any text'}". Please check your HTML or try another preset.`
+        );
       }
-
+      if (multipleItems) {
+        for (const table of matchingTables) {
+          processTable($, table, includeHeaders, tables);
+        }
+      } else {
+        processTable($, matchingTables[0], includeHeaders, tables);
+      }
       return tables;
     }
 
@@ -152,9 +167,16 @@ function extractTableData(html: string, options: ConversionOptions): TableData[]
       if (tablesInElement.length > 0) {
         foundTables = true;
 
-        // Process the first table found
-        processTable($, tablesInElement[0], includeHeaders, tables);
-        return false; // Break each loop after processing the first table
+        // If multipleItems is false and we're not using "all-tables" preset, only process the first table
+        if (!multipleItems && !(options.selectorMode === 'simple' && options.tablePreset === 'all-tables')) {
+          processTable($, tablesInElement[0], includeHeaders, tables);
+          return false; // Break each loop after processing the first table
+        }
+
+        // Process all tables if multipleItems is true or we're using "all-tables" preset
+        tablesInElement.each((_, table) => {
+          processTable($, table, includeHeaders, tables);
+        });
       }
 
       return true; // Continue the each() loop
@@ -168,6 +190,11 @@ function extractTableData(html: string, options: ConversionOptions): TableData[]
 
       const elementSelectorMsg = elementSelector ? ` matching: "${elementSelector}"` : '';
       throw new Error(`No tables found matching the selector: "${tableSelector}" within elements${elementSelectorMsg}.${helpfulMessage}`);
+    }
+
+    // If we found a large number of tables, add a note to the first table
+    if (tables.length > 10 && multipleItems) {
+      tables[0].headers.push(`NOTE: Found ${tables.length} tables. Consider using a more specific selector.`);
     }
   } catch (error) {
     // Rethrow the error with a clear message
@@ -203,6 +230,12 @@ function processTable($: cheerio.Root, table: cheerio.Element, includeHeaders: b
     headers: [],
     rows: [],
   };
+
+  // Extract caption if present
+  const caption = $(table).find('caption').first();
+  if (caption.length > 0) {
+    tableData.caption = caption.text().trim();
+  }
 
   // Determine if there's a header row we can identify
   let headerRowSelector = '';
@@ -320,11 +353,48 @@ export async function htmlToJson(html: string, options: ConversionOptions): Prom
   }
 
   const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
-  const includeHeaders = true;
+  const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
+
   debug('htmlConverter.ts', `htmlToJson - includeTableHeaders: ${includeHeaders}`, { originalOption: options.includeTableHeaders, default: DEFAULT_INCLUDE_HEADERS });
 
   if (tables.length === 0) {
     throw new Error('No tables found in HTML');
+  }
+
+  // Only nest output if multipleItems is true AND we have multiple tables
+  if (options.multipleItems && tables.length > 1) {
+    // Multiple tables
+    const jsonData = tables.map((table, tableIndex) => {
+      const tableData = [];
+      debug('htmlConverter.ts', `htmlToJson - Table ${tableIndex + 1} - Headers available: ${table.headers.length > 0}, includeHeaders: ${includeHeaders}`);
+
+      if (table.headers.length > 0 && includeHeaders) {
+        debug('htmlConverter.ts', `htmlToJson - Including headers for table ${tableIndex + 1}`);
+        for (const row of table.rows) {
+          const rowObj: Record<string, string> = {};
+          table.headers.forEach((header, index) => {
+            if (index < row.length) {
+              rowObj[header] = row[index];
+            }
+          });
+          tableData.push(rowObj);
+        }
+      } else {
+        debug('htmlConverter.ts', `htmlToJson - Not including headers for table ${tableIndex + 1}`);
+        tableData.push(...table.rows);
+      }
+
+      // Include caption if present
+      const result: Record<string, unknown> = { data: tableData };
+      if (table.caption) {
+        result.caption = table.caption;
+      }
+      return result;
+    });
+
+    const result = JSON.stringify(jsonData, null, prettyPrint ? 2 : 0);
+    debugSample('htmlConverter.ts', 'htmlToJson - Output JSON (multiple tables)', result);
+    return result;
   }
 
   // Default: handle as single table (either just one table or multipleItems is false)
@@ -350,7 +420,13 @@ export async function htmlToJson(html: string, options: ConversionOptions): Prom
     jsonData.push(...table.rows);
   }
 
-  const result = JSON.stringify(jsonData, null, prettyPrint ? 2 : 0);
+  // Include caption if present
+  let resultObj: Record<string, unknown> | unknown[] = jsonData;
+  if (table.caption) {
+    resultObj = { caption: table.caption, data: jsonData };
+  }
+
+  const result = JSON.stringify(resultObj, null, prettyPrint ? 2 : 0);
   debugSample('htmlConverter.ts', 'htmlToJson - Output JSON (single table)', result);
   return result;
 }
@@ -378,9 +454,48 @@ export async function htmlToCsv(html: string, options: ConversionOptions): Promi
   const delimiter = options.csvDelimiter || ',';
   let csvContent = '';
 
+  // Only nest output if multipleItems is true AND we have multiple tables
+  if (options.multipleItems && tables.length > 1) {
+    // Multiple tables - we'll separate them with blank lines
+    for (let i = 0; i < tables.length; i++) {
+      const table = tables[i];
+      debug('htmlConverter.ts', `htmlToCsv - Table ${i + 1} - Headers available: ${table.headers.length > 0}, includeHeaders: ${includeHeaders}`);
+
+      if (i > 0) {
+        csvContent += '\n\n';
+      }
+
+      // Add caption as a comment row if present
+      if (table.caption) {
+        csvContent += `# ${table.caption}\n`;
+      }
+
+      // Add headers if present and includeHeaders is true
+      if (table.headers.length > 0 && includeHeaders) {
+        debug('htmlConverter.ts', `htmlToCsv - Including headers for table ${i + 1}`);
+        csvContent += Papa.unparse({
+          fields: table.headers,
+          data: table.rows
+        }, { delimiter, header: true });
+      } else {
+        debug('htmlConverter.ts', `htmlToCsv - Not including headers for table ${i + 1}`);
+        // No headers available or includeHeaders is false, just convert rows
+        csvContent += Papa.unparse(table.rows, { delimiter, header: false });
+      }
+    }
+
+    debugSample('htmlConverter.ts', 'htmlToCsv - Output CSV (multiple tables)', csvContent);
+    return csvContent;
+  }
+
   // Default: handle as single table (either just one table or multipleItems is false)
   const table = tables[0];
   debug('htmlConverter.ts', `htmlToCsv - Single table - Headers available: ${table.headers.length > 0}, includeHeaders: ${includeHeaders}`);
+
+  // Add caption as a comment row if present
+  if (table.caption) {
+    csvContent += `# ${table.caption}\n`;
+  }
 
   // Add headers if present and includeHeaders is true
   if (table.headers.length > 0 && includeHeaders) {
@@ -393,15 +508,6 @@ export async function htmlToCsv(html: string, options: ConversionOptions): Promi
     debug('htmlConverter.ts', 'htmlToCsv - Not including headers for table 1');
     // No headers available or includeHeaders is false, just convert rows
     csvContent += Papa.unparse(table.rows, { delimiter, header: false });
-  }
-
-  // Minify CSV output if prettyPrint is false
-  if (options.prettyPrint === false) {
-    csvContent = csvContent
-      .split(/\r?\n/)
-      .map(line => line.trim())
-      .filter(line => line.length > 0)
-      .join('\n') + '\n';
   }
 
   debugSample('htmlConverter.ts', 'htmlToCsv - Output CSV (single table)', csvContent);
@@ -434,6 +540,11 @@ export async function htmlToHtml(html: string, options: ConversionOptions): Prom
     const table = tables[0];
 
     output += '<table>';
+
+    // Add caption if present
+    if (table.caption) {
+      output += `${indentation}<caption>${escapeHtml(table.caption)}</caption>`;
+    }
 
     // Add headers if present
     if (table.headers.length > 0) {
@@ -474,6 +585,11 @@ export async function htmlToHtml(html: string, options: ConversionOptions): Prom
 
       output += '<table>';
 
+      // Add caption if present
+      if (table.caption) {
+        output += `${indentation}<caption>${escapeHtml(table.caption)}</caption>`;
+      }
+
       // Add headers if present
       if (table.headers.length > 0) {
         output += `${indentation}<thead>`;
@@ -507,12 +623,12 @@ export async function htmlToHtml(html: string, options: ConversionOptions): Prom
 
   // Apply minification if pretty print is disabled
   if (!prettyPrint) {
-    output = minify(output, {
-      collapseWhitespace: true,
-      removeComments: true,
-      removeEmptyAttributes: true,
-      removeRedundantAttributes: true
-    });
+    output = minifyHtml.minify(Buffer.from(output), {
+      minify_whitespace: true,
+      keepComments: false,
+      keepSpacesBetweenAttributes: false,
+      keepHtmlAndHeadOpeningTags: false
+    } as unknown as object).toString();
   }
 
   return output;

@@ -1,8 +1,7 @@
-import { Parser } from 'json2csv';
-import { minify } from 'html-minifier';
+import { json2csv } from 'json-2-csv';
 import type { ConversionOptions } from '../types';
 import { DEFAULT_CSV_DELIMITER, DEFAULT_INCLUDE_HEADERS, DEFAULT_PRETTY_PRINT } from './constants';
-import { debug, debugSample } from './debug';
+import minifyHtml from '@minify-html/node';
 
 /**
  * Parses JSON data into a structured format
@@ -19,55 +18,32 @@ function parseJSON(jsonStr: string) {
  * Converts JSON to CSV
  */
 export async function jsonToCsv(jsonStr: string, options: ConversionOptions): Promise<string> {
-  debug('jsonConverter.ts', 'jsonToCsv - Input JSON', jsonStr);
   const delimiter = options.csvDelimiter || DEFAULT_CSV_DELIMITER;
   const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
-  debug('jsonConverter.ts', 'jsonToCsv - Options', { delimiter, includeHeaders, ...options });
   const jsonData = parseJSON(jsonStr);
-  debug('jsonConverter.ts', 'jsonToCsv - Parsed Data', jsonData);
 
   // Handle different JSON structures (array of objects, array of arrays, etc.)
   try {
     // For array of objects, use json2csv parser
     if (Array.isArray(jsonData) && jsonData.length > 0 && typeof jsonData[0] === 'object' && !Array.isArray(jsonData[0])) {
       const fields = Object.keys(jsonData[0]);
-      const json2csvParser = new Parser({
-        fields,
-        delimiter,
-        header: includeHeaders
-      });
-      let result = json2csvParser.parse(jsonData);
-      // Minify CSV output if prettyPrint is false
-      if (options.prettyPrint === false) {
-        result = result
-          .split(/\r?\n/)
-          .map(line => line.trim())
-          .filter(line => line.length > 0)
-          .join('\n') + '\n';
-      }
-      debugSample('jsonConverter.ts', 'jsonToCsv - Output CSV', result);
-      return result;
+      const optionsCsv = {
+        delimiter: { field: delimiter },
+        prependHeader: includeHeaders,
+        keys: fields
+      };
+      return await json2csv(jsonData, optionsCsv);
     }
 
     // For array of arrays, convert directly
     if (Array.isArray(jsonData) && jsonData.length > 0 && Array.isArray(jsonData[0])) {
-      let result = jsonData.map(row =>
+      return jsonData.map(row =>
         row.map((cell: unknown) =>
           typeof cell === 'string' && cell.includes(delimiter) ?
             `"${cell.replace(/"/g, '""')}"` :
             String(cell)
         ).join(delimiter)
       ).join('\n');
-      // Minify CSV output if prettyPrint is false
-      if (options.prettyPrint === false) {
-        result = result
-          .split(/\r?\n/)
-          .map(line => line.trim())
-          .filter(line => line.length > 0)
-          .join('\n') + '\n';
-      }
-      debugSample('jsonConverter.ts', 'jsonToCsv - Output CSV', result);
-      return result;
     }
 
     // For simple objects, convert to array of key-value pairs
@@ -88,17 +64,7 @@ export async function jsonToCsv(jsonStr: string, options: ConversionOptions): Pr
         ].join(delimiter));
       }
 
-      let result = rows.join('\n');
-      // Minify CSV output if prettyPrint is false
-      if (options.prettyPrint === false) {
-        result = result
-          .split(/\r?\n/)
-          .map(line => line.trim())
-          .filter(line => line.length > 0)
-          .join('\n') + '\n';
-      }
-      debugSample('jsonConverter.ts', 'jsonToCsv - Output CSV', result);
-      return result;
+      return rows.join('\n');
     }
 
     throw new Error('Unsupported JSON structure for CSV conversion');
@@ -114,14 +80,11 @@ export async function jsonToHtml(
   jsonData: string | Record<string, unknown> | unknown[],
   options: ConversionOptions
 ): Promise<string> {
-  debug('jsonConverter.ts', 'jsonToHtml - Input', jsonData);
   const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
   const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
-  debug('jsonConverter.ts', 'jsonToHtml - Options', { includeHeaders, prettyPrint, ...options });
 
   // Parse the input if it's a string, otherwise use as is
   const parsedData = typeof jsonData === 'string' ? parseJSON(jsonData) : jsonData;
-  debug('jsonConverter.ts', 'jsonToHtml - Parsed Data', parsedData);
 
   let html = '<table>';
   const indentation = prettyPrint ? '\n  ' : '';
@@ -204,15 +167,14 @@ export async function jsonToHtml(
 
     // Apply minification if pretty print is disabled
     if (!prettyPrint) {
-      html = minify(html, {
-        collapseWhitespace: true,
-        removeComments: true,
-        removeEmptyAttributes: true,
-        removeRedundantAttributes: true
-      });
+      html = minifyHtml.minify(Buffer.from(html), {
+        minify_whitespace: true,
+        keepComments: false,
+        keepSpacesBetweenAttributes: false,
+        keepHtmlAndHeadOpeningTags: false
+      } as unknown as object).toString();
     }
 
-    debugSample('jsonConverter.ts', 'jsonToHtml - Output HTML', html);
     return html;
   } catch (error) {
     throw new Error(`JSON to HTML conversion error: ${error.message}`);

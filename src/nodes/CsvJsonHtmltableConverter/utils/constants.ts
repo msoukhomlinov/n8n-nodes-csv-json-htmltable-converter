@@ -32,8 +32,14 @@ export const OPERATION_OPTIONS = [
     value: 'replace',
     description: 'Replace an HTML table with new content',
   },
+  {
+    name: 'Style',
+    value: 'style',
+    description: 'Apply custom styles to HTML tables',
+  },
 ];
 
 export const DEFAULT_CSV_DELIMITER = ',';
 export const DEFAULT_INCLUDE_HEADERS = true;
 export const DEFAULT_PRETTY_PRINT = false;
+export const DEFAULT_MULTIPLE_ITEMS = false;

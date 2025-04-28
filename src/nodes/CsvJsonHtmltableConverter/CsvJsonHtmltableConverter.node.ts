@@ -5,10 +5,14 @@ import {
 
 import { convertData } from './utils/convertData';
 import { validateInput } from './utils/validateInput';
+import { jsonToHtml } from './utils/jsonConverter';
 import type { FormatType, ConversionOptions, SelectorMode, TablePreset, OperationType } from './types';
 import { nodeDescription } from './nodeDescription';
+import Papa from 'papaparse';
 import { replaceTable } from './utils/replaceTable';
-import { debug, debugSample } from './utils/debug';
+import { debug } from './utils/debug';
+import minifyHtml from '@minify-html/node';
+import { applyTableStyles } from './utils/applyTableStyles';
 
 export class CsvJsonHtmltableConverter implements INodeType {
   description: INodeTypeDescription = nodeDescription;
@@ -25,11 +29,12 @@ export class CsvJsonHtmltableConverter implements INodeType {
       if (operation === 'replace') {
         for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
           const sourceHtml = this.getNodeParameter('sourceHtml', itemIndex) as string;
+          const replacementFormat = this.getNodeParameter('replacementFormat', itemIndex) as FormatType;
           const replacementContent = this.getNodeParameter('replacementContent', itemIndex) as string;
           const outputField = this.getNodeParameter('outputField', itemIndex, 'convertedData') as string;
           const prettyPrint = this.getNodeParameter('prettyPrint', itemIndex, false) as boolean;
 
-          // Collect options for table selection and replacement
+          // Collect options for table selection
           const options: ConversionOptions = {
             prettyPrint,
           };
@@ -41,28 +46,45 @@ export class CsvJsonHtmltableConverter implements INodeType {
             options.tablePreset = this.getNodeParameter('tablePreset', itemIndex, 'all-tables') as TablePreset;
 
             if (options.tablePreset === 'table-under-heading') {
-              options.headingLevel = this.getNodeParameter('headingLevel', itemIndex, 'h2') as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
+              options.headingLevel = this.getNodeParameter('headingLevel', itemIndex, 1) as number;
               options.headingText = this.getNodeParameter('headingText', itemIndex, '') as string;
               options.tableIndex = this.getNodeParameter('tableIndex', itemIndex, 1) as number;
-            } else if (options.tablePreset === 'custom') {
+            }
+
+            if (options.tablePreset === 'custom') {
               options.tableSelector = this.getNodeParameter('tableSelector', itemIndex, 'table') as string;
             }
           } else {
             // Advanced mode
-            options.elementSelector = this.getNodeParameter('elementSelector', itemIndex, 'html') as string;
             options.tableSelector = this.getNodeParameter('tableSelector', itemIndex, 'table') as string;
+            options.elementSelector = this.getNodeParameter('elementSelector', itemIndex, 'html') as string;
           }
 
-          debug('CsvJsonHtmltableConverter.node.ts', 'Replace operation - Params', {
-            sourceHtml: sourceHtml?.slice(0, 150) + (sourceHtml.length > 150 ? '...' : ''),
-            replacementContent: replacementContent?.slice(0, 150) + (replacementContent.length > 150 ? '...' : ''),
-            options
-          });
+          // If the replacement content is not HTML, convert it to HTML first
+          let htmlReplacementContent = replacementContent;
 
-          // Replace the table in the source HTML using the direct HTML replacementContent
-          const result = await replaceTable(sourceHtml, replacementContent, options);
+          if (replacementFormat !== 'html') {
+            // Validate the replacement content
+            const validationResult = validateInput(replacementContent, replacementFormat);
+            if (!validationResult.valid) {
+              throw new NodeOperationError(this.getNode(), `Invalid replacement content: ${validationResult.error}`);
+            }
 
-          debugSample('CsvJsonHtmltableConverter.node.ts', 'Replace operation - Output sample', result?.slice(0, 150) + (result.length > 150 ? '...' : ''));
+            // Convert replacement content to HTML
+            const conversionOptions: ConversionOptions = {
+              prettyPrint,
+              includeTableHeaders: true,
+            };
+
+            if (replacementFormat === 'csv') {
+              conversionOptions.csvDelimiter = ',';
+            }
+
+            htmlReplacementContent = await convertData(replacementContent, replacementFormat, 'html', conversionOptions) as string;
+          }
+
+          // Replace the table in the source HTML
+          const result = await replaceTable(sourceHtml, htmlReplacementContent, options);
 
           // Return the result
           returnData.push({
@@ -75,6 +97,60 @@ export class CsvJsonHtmltableConverter implements INodeType {
         return [returnData];
       }
 
+      // Handle the Style operation
+      if (operation === 'style') {
+        for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
+          const htmlInput = this.getNodeParameter('htmlInput', itemIndex) as string;
+          const tableClass = this.getNodeParameter('tableClass', itemIndex, '') as string;
+          const tableStyle = this.getNodeParameter('tableStyle', itemIndex, '') as string;
+          const rowStyle = this.getNodeParameter('rowStyle', itemIndex, '') as string;
+          const cellStyle = this.getNodeParameter('cellStyle', itemIndex, '') as string;
+          const zebraStriping = this.getNodeParameter('zebraStriping', itemIndex, false) as boolean;
+          const evenRowColor = this.getNodeParameter('evenRowColor', itemIndex, '') as string;
+          const oddRowColor = this.getNodeParameter('oddRowColor', itemIndex, '') as string;
+          const borderStyle = this.getNodeParameter('borderStyle', itemIndex, '') as string;
+          const borderWidth = this.getNodeParameter('borderWidth', itemIndex, 1) as number;
+          const captionStyle = this.getNodeParameter('captionStyle', itemIndex, '') as string;
+          const captionPosition = this.getNodeParameter('captionPosition', itemIndex, 'top') as string;
+          const borderColor = this.getNodeParameter('borderColor', itemIndex, '') as string;
+          const borderRadius = this.getNodeParameter('borderRadius', itemIndex, '') as string;
+          const borderCollapse = this.getNodeParameter('borderCollapse', itemIndex, '') as string;
+          const tableTextAlign = this.getNodeParameter('tableTextAlign', itemIndex, '') as string;
+          const rowTextAlign = this.getNodeParameter('rowTextAlign', itemIndex, '') as string;
+          const cellTextAlign = this.getNodeParameter('cellTextAlign', itemIndex, '') as string;
+          const outputField = this.getNodeParameter('outputField', itemIndex, 'styledHtml') as string;
+
+          const styleOptions = {
+            tableClass,
+            tableStyle,
+            rowStyle,
+            cellStyle,
+            zebraStriping,
+            evenRowColor,
+            oddRowColor,
+            borderStyle,
+            borderColor,
+            borderRadius,
+            borderCollapse,
+            tableTextAlign,
+            rowTextAlign,
+            cellTextAlign,
+            borderWidth,
+            captionStyle,
+            captionPosition,
+          };
+
+          const styledHtml = applyTableStyles(htmlInput, styleOptions);
+
+          returnData.push({
+            json: {
+              [outputField]: styledHtml,
+            },
+          });
+        }
+        return [returnData];
+      }
+
       // Special handling for n8nObject to HTML/CSV/JSON conversion - collect all items into one array
       if (this.getNodeParameter('sourceFormat', 0) === 'n8nObject' &&
           (this.getNodeParameter('targetFormat', 0) === 'html' ||
@@ -84,7 +160,7 @@ export class CsvJsonHtmltableConverter implements INodeType {
         // Get individual options
         const targetFormat = this.getNodeParameter('targetFormat', 0) as FormatType;
 
-        // Use parameters from UI for n8nObject to HTML/CSV/JSON conversion
+        // Use parameters from UI for n8nObject to HTML conversion
         let outputField = 'convertedData';
         let includeTableHeaders = true;
         let prettyPrint = false;
@@ -99,33 +175,16 @@ export class CsvJsonHtmltableConverter implements INodeType {
             // Use defaults if parameters not found
           }
         }
-        // For CSV, get the parameter values from the UI
-        if (targetFormat === 'csv') {
-          try {
-            outputField = this.getNodeParameter('outputField', 0) as string;
-            includeTableHeaders = this.getNodeParameter('includeTableHeaders', 0, true) as boolean;
-            prettyPrint = this.getNodeParameter('prettyPrint', 0, false) as boolean;
-          } catch (error) {
-            // Use defaults if parameters not found
-          }
-        }
-        // For JSON, get the parameter values from the UI
-        if (targetFormat === 'json') {
-          try {
-            outputField = this.getNodeParameter('outputField', 0) as string;
-            prettyPrint = this.getNodeParameter('prettyPrint', 0, false) as boolean;
-          } catch (error) {
-            // Use defaults if parameters not found
-          }
-        }
 
         // For CSV/JSON, always combine everything regardless of multipleItems setting
+        const multipleItems = false; // Default to false for n8nObject source format
         const csvDelimiter = targetFormat === 'csv' ? this.getNodeParameter('csvDelimiterOutput', 0, ',') as string : ',';
 
         // Combine into options object
         const options: ConversionOptions = {
           includeTableHeaders,
           prettyPrint,
+          multipleItems,
           csvDelimiter
         };
 
@@ -199,15 +258,40 @@ export class CsvJsonHtmltableConverter implements INodeType {
           }
         }
 
-        // If we collected any items, use convertData for conversion
+        // If we collected any items
         if (allItems.length > 0) {
-          // Use convertData utility for all conversions for consistency and debug logging
-          const result = await convertData(allItems, 'n8nObject', targetFormat, options);
+          let finalResult = '';
 
-          // Return a single item with just the converted data in the specified output field
+          // Convert based on target format
+          if (targetFormat === 'html') {
+            // Convert the combined array to HTML
+            const htmlTable = await jsonToHtml(allItems, options);
+
+            // Minify the HTML if pretty print is disabled
+            finalResult = !prettyPrint ?
+              minifyHtml.minify(Buffer.from(htmlTable), {
+                minify_whitespace: true,
+                keepComments: false,
+                keepSpacesBetweenAttributes: false,
+                keepHtmlAndHeadOpeningTags: false
+              } as unknown as object).toString() :
+              htmlTable;
+          } else if (targetFormat === 'csv') {
+            // For CSV, use Papa.unparse directly to ensure consistent output
+            const result = Papa.unparse(allItems, {
+              delimiter: csvDelimiter,
+              header: includeTableHeaders
+            });
+            finalResult = result;
+          } else if (targetFormat === 'json') {
+            // For JSON, use JSON.stringify directly
+            finalResult = JSON.stringify(allItems, null, prettyPrint ? 2 : 0);
+          }
+
+          // Return a single item with just the converted data
           returnData.push({
             json: {
-              [outputField]: result,
+              [outputField]: finalResult,
             },
           });
 
@@ -257,7 +341,7 @@ export class CsvJsonHtmltableConverter implements INodeType {
             options.tablePreset = this.getNodeParameter('tablePreset', itemIndex, 'all-tables') as TablePreset;
 
             if (options.tablePreset === 'table-under-heading') {
-              options.headingLevel = this.getNodeParameter('headingLevel', itemIndex, 'h2') as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
+              options.headingLevel = this.getNodeParameter('headingLevel', itemIndex, 1) as number;
               options.headingText = this.getNodeParameter('headingText', itemIndex, '') as string;
               options.tableIndex = this.getNodeParameter('tableIndex', itemIndex, 1) as number;
             }
@@ -276,19 +360,24 @@ export class CsvJsonHtmltableConverter implements INodeType {
         if (sourceFormat === 'n8nObject' && targetFormat !== 'html') {
           // Set defaults for n8nObject source format except for HTML target
           options.includeTableHeaders = true;
+          options.multipleItems = false;
           debug('CsvJsonHtmltableConverter.node.ts', `n8nObject source format: includeTableHeaders=${options.includeTableHeaders}`);
-        } else if (targetFormat === 'json') {
-          // Always include table headers for JSON output
-          options.includeTableHeaders = true;
         } else {
           // For other source formats, use the parameters from the UI
+          options.multipleItems = this.getNodeParameter('multipleItems', itemIndex, false) as boolean;
+
           // Use includeTableHeaders parameter for HTML, CSV, and JSON target formats
-          options.includeTableHeaders = this.getNodeParameter('includeTableHeaders', itemIndex, true) as boolean;
-          debug('CsvJsonHtmltableConverter.node.ts', `sourceFormat=${sourceFormat}, targetFormat=${targetFormat}, includeTableHeaders=${options.includeTableHeaders}`);
+          if (targetFormat === 'html' || targetFormat === 'csv' || targetFormat === 'json') {
+            options.includeTableHeaders = this.getNodeParameter('includeTableHeaders', itemIndex, true) as boolean;
+            debug('CsvJsonHtmltableConverter.node.ts', `sourceFormat=${sourceFormat}, targetFormat=${targetFormat}, includeTableHeaders=${options.includeTableHeaders}`);
+          } else {
+            options.includeTableHeaders = true;
+            debug('CsvJsonHtmltableConverter.node.ts', `Other target format: includeTableHeaders=${options.includeTableHeaders}`);
+          }
         }
 
         // Options specific to certain target formats
-        if (["json", "html", "n8nObject", "csv"].includes(targetFormat)) {
+        if (['json', 'html', 'n8nObject'].includes(targetFormat)) {
           options.prettyPrint = this.getNodeParameter('prettyPrint', itemIndex, false) as boolean;
         }
 
@@ -362,17 +451,20 @@ export class CsvJsonHtmltableConverter implements INodeType {
 
         // For n8n Object, return the object directly
         if (targetFormat === 'n8nObject') {
-          if (Array.isArray(result)) {
-            // Return one item per object in the array
-            for (const obj of result) {
+          if (sourceFormat === 'html' && Array.isArray(result) && result.length > 1) {
+            // For HTML tables with multiple rows, we need to return each row as a separate item
+            // without wrapping them in a 'data' property
+            for (const row of result) {
               returnData.push({
-                json: obj as IDataObject,
+                json: row as IDataObject,
               });
             }
           } else {
-            // If result is not an array, return as a single item
+            // For other cases, maintain existing behavior
+            // If result is an array with a single item, return just that item
+            const unwrappedResult = Array.isArray(result) && result.length === 1 ? result[0] : result;
             returnData.push({
-              json: result as IDataObject,
+              json: unwrappedResult as IDataObject,
             });
           }
         } else {

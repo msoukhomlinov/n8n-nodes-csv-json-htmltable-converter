@@ -2,14 +2,15 @@ export type FormatType = 'html' | 'csv' | 'json' | 'n8nObject';
 
 export type SelectorMode = 'simple' | 'advanced';
 
-export type OperationType = 'convert' | 'replace';
+export type OperationType = 'convert' | 'replace' | 'style';
 
 export type TablePreset =
   | 'all-tables'
   | 'first-table'
   | 'last-table'
   | 'table-under-heading'
-  | 'custom';
+  | 'custom'
+  | 'table-with-caption';
 
 export interface ConversionOptions {
   csvDelimiter?: string;
@@ -17,13 +18,34 @@ export interface ConversionOptions {
   elementSelector?: string;
   selectorMode?: SelectorMode;
   tablePreset?: TablePreset;
-  headingLevel?: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
+  headingLevel?: number;
   headingText?: string;
   tableIndex?: number;
   includeTableHeaders?: boolean;
   prettyPrint?: boolean;
+  multipleItems?: boolean;
   replacementContent?: string;
   replacementInputType?: FormatType;
+  captionText?: string;
+  // Style operation options
+  htmlInput?: string;
+  tableClass?: string;
+  tableStyle?: string;
+  rowStyle?: string;
+  cellStyle?: string;
+  zebraStriping?: boolean;
+  evenRowColor?: string;
+  oddRowColor?: string;
+  borderStyle?: string;
+  borderColor?: string;
+  borderRadius?: string;
+  borderCollapse?: string;
+  tableTextAlign?: string;
+  rowTextAlign?: string;
+  cellTextAlign?: string;
+  borderWidth?: number;
+  captionStyle?: string;
+  captionPosition?: string;
   [key: string]: unknown;
 }
 
@@ -35,6 +57,7 @@ export interface ValidationResult {
 export interface TableData {
   headers: string[];
   rows: string[][];
+  caption?: string;
 }
 
 export interface HtmlTableOptions {

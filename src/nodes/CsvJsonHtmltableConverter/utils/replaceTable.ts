@@ -1,8 +1,7 @@
 import * as cheerio from 'cheerio';
 import type { ConversionOptions, TablePreset } from '../types';
-import { minify } from 'html-minifier';
+import minifyHtml from '@minify-html/node';
 import { DEFAULT_PRETTY_PRINT } from './constants';
-import { debug, debugSample } from './debug';
 
 /**
  * Maps preset options to corresponding selectors
@@ -17,17 +16,19 @@ function getPresetSelectors(preset: TablePreset, options: ConversionOptions): { 
     case 'last-table':
       return { elementSelector: 'html', tableSelector: 'table:last-of-type' };
     case 'table-under-heading': {
-      // Get the heading level (default to h2 if not specified)
-      const headingLevel = options.headingLevel || 'h2';
+      // Get the heading level (default to 1 if not specified)
+      let headingLevel = typeof options.headingLevel === 'number' ? options.headingLevel : 1;
+      if (headingLevel < 1 || headingLevel > 999) headingLevel = 1;
+      const headingSelector = `h${headingLevel}`;
       // Get the table index (default to 1 if not specified)
       const tableIndex = options.tableIndex || 1;
-
       // For table-under-heading, we'll return a special value that will be handled
       // in the findTable function with a custom implementation
       return {
         elementSelector: 'special:table-under-heading',
         tableSelector: JSON.stringify({
-          headingLevel,
+          headingLevel: headingLevel,
+          headingSelector,
           headingText: options.headingText?.trim() || '',
           tableIndex
         })
@@ -36,6 +37,15 @@ function getPresetSelectors(preset: TablePreset, options: ConversionOptions): { 
     case 'custom':
       // For custom, we'll use the provided tableSelector
       return { elementSelector: 'html', tableSelector: '' };
+    case 'table-with-caption': {
+      // For table-with-caption, return a special selector and pass captionText
+      return {
+        elementSelector: 'special:table-with-caption',
+        tableSelector: JSON.stringify({
+          captionText: options.captionText?.trim() || '',
+        }),
+      };
+    }
     default:
       return { elementSelector: 'html', tableSelector: 'table' };
   }
@@ -74,60 +84,64 @@ function findTable($: cheerio.Root, options: ConversionOptions): cheerio.Element
     if (elementSelector === 'special:table-under-heading') {
       const config = JSON.parse(tableSelector);
       const headingLevel = config.headingLevel;
+      const headingSelector = config.headingSelector || `h${headingLevel}`;
       const headingText = config.headingText;
       const tableIndex = config.tableIndex;
-
-      // Find all tables that come after the specified heading
-      const tablesAfterHeading: cheerio.Element[] = [];
-
+      // Validate headingLevel
+      if (typeof headingLevel !== 'number' || headingLevel < 1 || headingLevel > 999) {
+        throw new Error('Heading Level must be a number between 1 and 999.');
+      }
       // Find all headings with the specified text
-      $(headingLevel).each((_, heading) => {
+      let foundTable = null;
+      $(headingSelector).each((_, heading) => {
         const headingContent = $(heading).text().trim();
-
-        // Check if the heading contains the specified text (case-insensitive)
         if (headingText === '' || headingContent.toLowerCase().includes(headingText.toLowerCase())) {
-          // Find all tables that come after this heading in the document
-          let currentElement = heading;
-          let nextElement = currentElement.next;
-
-          while (nextElement !== null) {
-            // If we hit another heading of the same or higher level, stop
-            if (nextElement.type === 'tag' &&
-                nextElement.name &&
-                nextElement.name.match(/^h[1-6]$/) &&
-                Number.parseInt(nextElement.name.substring(1), 10) <= Number.parseInt(headingLevel.substring(1), 10)) {
-              break;
-            }
-
-            // If current element is a table or contains tables, add them
-            if (nextElement.type === 'tag') {
-              if (nextElement.name === 'table') {
-                tablesAfterHeading.push(nextElement);
-              } else {
-                $(nextElement).find('table').each((_, table) => {
-                  tablesAfterHeading.push(table);
-                });
-              }
-            }
-
-            currentElement = nextElement;
-            nextElement = currentElement.next;
+          // Use nextAll('table') to get all direct sibling tables after the heading
+          const tablesAfterHeading = $(heading).nextAll('table');
+          if (tablesAfterHeading.length >= tableIndex) {
+            foundTable = tablesAfterHeading[tableIndex - 1];
+            return false; // Stop after finding the correct heading and table
           }
         }
+        return true;
+      });
+      if (foundTable) {
+        return foundTable;
+      }
+      // No tables found after matching headings
+      throw new Error(`No tables found after heading level h${headingLevel} containing "${headingText || 'any text'}" at index ${tableIndex}. Please check your HTML structure or try another preset.`);
+    }
+
+    // Special handling for table-with-caption preset
+    if (elementSelector === 'special:table-with-caption') {
+      const config = JSON.parse(tableSelector);
+      const captionText = config.captionText;
+      let foundTable: cheerio.Element | null = null;
+
+      $('table').each((_, table) => {
+        const caption = $(table).find('caption').first();
+
+        if (caption.length > 0) {
+          const captionContent = caption.text().trim();
+
+          if (
+            captionText === '' ||
+            captionContent.toLowerCase().includes(captionText.toLowerCase())
+          ) {
+            foundTable = table;
+            return false; // Break out of .each()
+          }
+        }
+
+        return true; // Continue the .each() loop
       });
 
-      // Return the table at the specified index (if available)
-      if (tablesAfterHeading.length >= tableIndex) {
-        return tablesAfterHeading[tableIndex - 1];
+      if (!foundTable) {
+        throw new Error(
+          `No tables found with <caption> containing "${captionText || 'any text'}". Please check your HTML or try another preset.`
+        );
       }
-
-      // If table index is out of range but we found some tables, use the first one
-      if (tablesAfterHeading.length > 0) {
-        return tablesAfterHeading[0];
-      }
-
-      // No tables found after matching headings
-      throw new Error(`No tables found after heading ${headingLevel} containing "${headingText || 'any text'}". Please check your HTML structure or try another preset.`);
+      return foundTable;
     }
 
     // If elementSelector is empty, use the root element
@@ -184,8 +198,6 @@ function findTable($: cheerio.Root, options: ConversionOptions): cheerio.Element
     }
     throw error;
   }
-  // Add explicit return to fix "not all code paths return a value" error
-  return null;
 }
 
 /**
@@ -196,107 +208,35 @@ export async function replaceTable(
   replacementContent: string,
   options: ConversionOptions
 ): Promise<string> {
-  debug('replaceTable.ts', 'replaceTable - Input', { html: html?.slice(0, 150) + (html.length > 150 ? '...' : ''), replacementContent: replacementContent?.slice(0, 150) + (replacementContent.length > 150 ? '...' : ''), options });
   const $ = cheerio.load(html);
   const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
-  const isReplaceAll = options.selectorMode === 'simple' && options.tablePreset === 'all-tables';
 
   try {
-    // --- Logic to find and replace tables ---
-    let tablesFound = 0;
+    // Find the table to replace
+    const tableToReplace = findTable($, options);
 
-    // Determine selectors based on mode
-    let elementSelector: string;
-    let tableSelector: string;
-
-    if (options.selectorMode === 'simple') {
-      const preset = options.tablePreset || 'all-tables';
-      const presetSelectors = getPresetSelectors(preset, options);
-      elementSelector = presetSelectors.elementSelector;
-      tableSelector = (preset === 'custom' ? options.tableSelector?.trim() : presetSelectors.tableSelector) || 'table';
-      debug('replaceTable.ts', 'SelectorMode: simple', { preset, elementSelector, tableSelector });
-    } else { // Advanced mode
-      elementSelector = options.elementSelector?.trim() || 'html';
-      tableSelector = options.tableSelector?.trim() || 'table';
-      debug('replaceTable.ts', 'SelectorMode: advanced', { elementSelector, tableSelector });
+    if (!tableToReplace) {
+      throw new Error('No table found to replace. Please check your selectors.');
     }
 
-    // Special handling for table-under-heading (finds only one specific table)
-    if (elementSelector === 'special:table-under-heading') {
-      const tableToReplace = findTable($, options); // findTable handles the logic for this preset
-      if (!tableToReplace) {
-        debug('replaceTable.ts', 'No table found for table-under-heading');
-        throw new Error('No table found matching the \'table-under-heading\' criteria.'); // Error from findTable will be more specific
-      }
-      $(tableToReplace).replaceWith(replacementContent);
-      tablesFound = 1;
-      debug('replaceTable.ts', 'Replaced table-under-heading');
-    } else {
-      // Handle all other presets/modes
-      const elements = elementSelector ? $(elementSelector) : $.root();
-      if (elements.length === 0 && elementSelector) {
-        debug('replaceTable.ts', 'No elements found for selector', elementSelector);
-        throw new Error(`No elements found matching the container selector: \"${elementSelector}\".`);
-      }
-
-      // Process elements to find and replace tables
-      elements.each((_, element) => {
-        const tablesInElement = $(element).find(tableSelector);
-        debug('replaceTable.ts', 'Tables found in element', tablesInElement.length);
-
-        if (tablesInElement.length > 0) {
-          if (isReplaceAll) {
-            // Replace ALL tables found within this element
-            tablesInElement.each((idx, table) => {
-              $(table).replaceWith(replacementContent);
-              tablesFound++;
-            });
-            debug('replaceTable.ts', 'Replaced all tables in element', tablesInElement.length);
-            // Don't return false here - continue processing all elements
-          } else {
-            // Replace only the FIRST table found (for first-table, last-table, custom)
-            // Note: findTable handles first/last logic more specifically if needed, but this covers custom/default
-            const tableToReplace = tablesInElement.first(); // Use first() for clarity
-            $(tableToReplace).replaceWith(replacementContent);
-            tablesFound++;
-            debug('replaceTable.ts', 'Replaced first table in element');
-            return false; // Stop searching after replacing the first one
-          }
-        }
-        return true; // Continue to next element regardless (ensures explicit return for all paths)
-      });
-    }
-
-    debug('replaceTable.ts', 'Total tables replaced', tablesFound);
-
-    // Throw error if no tables were replaced
-    if (tablesFound === 0) {
-      debug('replaceTable.ts', 'No tables replaced, throwing error');
-      // Use the detailed error generation logic from findTable if possible, or craft a new one.
-      // Re-running findTable just for the error message might be inefficient.
-      // Let's craft a message based on the selectors used.
-      const elementMsg = elementSelector && elementSelector !== 'html' ? ` within elements matching \"${elementSelector}\"` : '';
-      const presetMsg = options.selectorMode === 'simple' && options.tablePreset ? ` using preset '${options.tablePreset}'` : '';
-      throw new Error(`No tables found to replace matching selector \"${tableSelector}\"${elementMsg}${presetMsg}. Check your selectors and HTML structure.`);
-    }
+    // Replace the table with the new content
+    $(tableToReplace).replaceWith(replacementContent);
 
     // Get the updated HTML
     let result = $.html();
 
     // Apply minification if pretty print is disabled
     if (!prettyPrint) {
-      result = minify(result, {
-        collapseWhitespace: true,
-        removeComments: true,
-        removeEmptyAttributes: true,
-        removeRedundantAttributes: true
-      });
+      result = minifyHtml.minify(Buffer.from(result), {
+        minify_whitespace: true,
+        keepComments: false,
+        keepSpacesBetweenAttributes: false,
+        keepHtmlAndHeadOpeningTags: false
+      } as unknown as object).toString();
     }
 
-    debugSample('replaceTable.ts', 'replaceTable - Output sample', result?.slice(0, 150) + (result.length > 150 ? '...' : ''));
     return result;
   } catch (error) {
-    debug('replaceTable.ts', 'Error in replaceTable', error);
     throw new Error(`Table replacement error: ${error.message}`);
   }
 }

@@ -1,8 +1,7 @@
 import Papa from 'papaparse';
-import { minify } from 'html-minifier';
+import minifyHtml from '@minify-html/node';
 import type { ConversionOptions } from '../types';
 import { DEFAULT_CSV_DELIMITER, DEFAULT_INCLUDE_HEADERS, DEFAULT_PRETTY_PRINT } from './constants';
-import { debug, debugSample } from './debug';
 
 /**
  * Parses CSV data into a structured format
@@ -28,29 +27,21 @@ function parseCSV(csv: string, options: ConversionOptions) {
  * Converts CSV to JSON
  */
 export async function csvToJson(csv: string, options: ConversionOptions): Promise<string> {
-  debug('csvConverter.ts', `csvToJson - Input CSV`, csv);
   const result = parseCSV(csv, options);
   const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
-  debug('csvConverter.ts', `csvToJson - Options`, { prettyPrint, ...options });
-  debug('csvConverter.ts', `csvToJson - Parsed Result`, result);
 
   // If we have headers, result.data will already be an array of objects
   // If not, result.data will be an array of arrays
-  const jsonString = JSON.stringify(result.data, null, prettyPrint ? 2 : 0);
-  debugSample('csvConverter.ts', 'csvToJson - Output JSON', jsonString);
-  return jsonString;
+  return JSON.stringify(result.data, null, prettyPrint ? 2 : 0);
 }
 
 /**
  * Converts CSV to HTML table
  */
 export async function csvToHtml(csv: string, options: ConversionOptions): Promise<string> {
-  debug('csvConverter.ts', `csvToHtml - Input CSV`, csv);
   const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
   const result = parseCSV(csv, { ...options, includeTableHeaders: false }); // We'll handle headers manually
   const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
-  debug('csvConverter.ts', `csvToHtml - Options`, { prettyPrint, ...options });
-  debug('csvConverter.ts', `csvToHtml - Parsed Result`, result);
 
   let html = '<table>';
   const indentation = prettyPrint ? '\n  ' : '';
@@ -90,15 +81,14 @@ export async function csvToHtml(csv: string, options: ConversionOptions): Promis
 
   // Apply minification if pretty print is disabled
   if (!prettyPrint) {
-    html = minify(html, {
-      collapseWhitespace: true,
-      removeComments: true,
-      removeEmptyAttributes: true,
-      removeRedundantAttributes: true
-    });
+    html = minifyHtml.minify(Buffer.from(html), {
+      minify_whitespace: true,
+      keepComments: false,
+      keepSpacesBetweenAttributes: false,
+      keepHtmlAndHeadOpeningTags: false
+    } as unknown as object).toString();
   }
 
-  debugSample('csvConverter.ts', 'csvToHtml - Output HTML', html);
   return html;
 }
 
