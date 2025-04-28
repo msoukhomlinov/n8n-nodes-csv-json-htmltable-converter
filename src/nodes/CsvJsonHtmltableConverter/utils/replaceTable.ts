@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import type { ConversionOptions, TablePreset } from '../types';
 import minifyHtml from '@minify-html/node';
 import { DEFAULT_PRETTY_PRINT } from './constants';
+import { debug, debugSample } from './debug';
 
 /**
  * Maps preset options to corresponding selectors
@@ -208,12 +209,19 @@ export async function replaceTable(
   replacementContent: string,
   options: ConversionOptions
 ): Promise<string> {
+  // Detect if input is a fragment (no <html> or <body> tags)
+  const isFragment = !(/<html[\s>]/i.test(html) || /<body[\s>]/i.test(html));
+
   const $ = cheerio.load(html);
   const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
+
+  debug('replaceTable.ts', `Input - replacementContent length: ${replacementContent.length}, prettyPrint: ${prettyPrint}`, options);
 
   try {
     // Find the table to replace
     const tableToReplace = findTable($, options);
+
+    debug('replaceTable.ts', `Table to replace found: ${!!tableToReplace}`);
 
     if (!tableToReplace) {
       throw new Error('No table found to replace. Please check your selectors.');
@@ -222,8 +230,12 @@ export async function replaceTable(
     // Replace the table with the new content
     $(tableToReplace).replaceWith(replacementContent);
 
+    debugSample('replaceTable.ts', 'Replacement content sample', replacementContent);
+
     // Get the updated HTML
-    let result = $.html();
+    let result = $.root().html() || '';
+
+    debugSample('replaceTable.ts', 'Updated HTML sample (pre-minify)', result);
 
     // Apply minification if pretty print is disabled
     if (!prettyPrint) {
@@ -233,10 +245,24 @@ export async function replaceTable(
         keepSpacesBetweenAttributes: false,
         keepHtmlAndHeadOpeningTags: false
       } as unknown as object).toString();
+      debugSample('replaceTable.ts', 'Updated HTML sample (minified)', result);
     }
 
+    // If the input was a fragment, strip <html> and <body> tags from the output
+    if (isFragment) {
+      const $result = cheerio.load(result, { xmlMode: false });
+      // If <body> exists, return its contents; otherwise, return the whole result
+      if ($result('body').length > 0) {
+        result = $result('body').html() || '';
+      } else if ($result('html').length > 0) {
+        result = $result('html').html() || '';
+      }
+    }
+
+    debug('replaceTable.ts', 'Returning updated HTML', { length: result.length });
     return result;
   } catch (error) {
+    debug('replaceTable.ts', `Error in replaceTable: ${error.message}`, error);
     throw new Error(`Table replacement error: ${error.message}`);
   }
 }

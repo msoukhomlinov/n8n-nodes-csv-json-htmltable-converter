@@ -9,8 +9,8 @@ export const nodeDescription: INodeTypeDescription = {
   group: ['transform'],
   version: 1,
   usableAsTool: true,
-  subtitle: '={{ $parameter["operation"] === "convert" ? $parameter["sourceFormat"] + " to " + $parameter["targetFormat"] : "Replace HTML Table" }}',
-  description: 'A comprehensive node that provides seamless bidirectional conversion between HTML tables, CSV, and JSON formats',
+  subtitle: '={{ $parameter["operation"] === "convert" ? $parameter["sourceFormat"] + " to " + $parameter["targetFormat"] : ($parameter["operation"] === "replace" ? "Replace Table in HTML" : "Style HTML Table(s)") }}',
+  description: 'Convert, replace, or style HTML tables, CSV, and JSON data.',
   defaults: {
     name: 'CSV JSON HTMLTable Converter',
   },
@@ -188,7 +188,7 @@ export const nodeDescription: INodeTypeDescription = {
       displayName: 'Show Table Class',
       name: 'showTableClass',
       type: 'boolean',
-      default: true,
+      default: false,
       description: 'Show the Table Class option',
       displayOptions: {
         show: {
@@ -214,7 +214,7 @@ export const nodeDescription: INodeTypeDescription = {
       displayName: 'Show Table Style',
       name: 'showTableStyle',
       type: 'boolean',
-      default: true,
+      default: false,
       description: 'Show the Table Style option',
       displayOptions: {
         show: {
@@ -264,7 +264,7 @@ export const nodeDescription: INodeTypeDescription = {
       displayName: 'Show Row Style',
       name: 'showRowStyle',
       type: 'boolean',
-      default: true,
+      default: false,
       description: 'Show the Row Style option',
       displayOptions: {
         show: {
@@ -314,7 +314,7 @@ export const nodeDescription: INodeTypeDescription = {
       displayName: 'Show Cell Style',
       name: 'showCellStyle',
       type: 'boolean',
-      default: true,
+      default: false,
       description: 'Show the Cell Style option',
       displayOptions: {
         show: {
@@ -364,7 +364,7 @@ export const nodeDescription: INodeTypeDescription = {
       displayName: 'Show Border Style',
       name: 'showBorderStyle',
       type: 'boolean',
-      default: true,
+      default: false,
       description: 'Show the Border Style and Border Width options',
       displayOptions: {
         show: {
@@ -464,7 +464,7 @@ export const nodeDescription: INodeTypeDescription = {
       displayName: 'Show Caption Style',
       name: 'showCaptionStyle',
       type: 'boolean',
-      default: true,
+      default: false,
       description: 'Show the Caption Style and Caption Position options',
       displayOptions: {
         show: {
@@ -535,7 +535,6 @@ export const nodeDescription: INodeTypeDescription = {
       description: 'How to select tables from HTML - Simple uses presets, Advanced gives more control',
       displayOptions: {
         hide: {
-          sourceFormat: ['csv', 'json', 'n8nObject'],
           operation: ['style'],
         },
       },
@@ -583,7 +582,6 @@ export const nodeDescription: INodeTypeDescription = {
           selectorMode: ['simple'],
         },
         hide: {
-          sourceFormat: ['csv', 'json', 'n8nObject'],
           selectorMode: ['advanced'],
         },
       },
@@ -604,7 +602,6 @@ export const nodeDescription: INodeTypeDescription = {
           tablePreset: ['table-under-heading'],
         },
         hide: {
-          sourceFormat: ['csv', 'json', 'n8nObject'],
           selectorMode: ['advanced'],
           tablePreset: ['all-tables', 'first-table', 'last-table', 'custom'],
         },
@@ -622,7 +619,6 @@ export const nodeDescription: INodeTypeDescription = {
           tablePreset: ['table-under-heading'],
         },
         hide: {
-          sourceFormat: ['csv', 'json', 'n8nObject'],
           selectorMode: ['advanced'],
           tablePreset: ['all-tables', 'first-table', 'last-table', 'custom'],
         },
@@ -640,7 +636,6 @@ export const nodeDescription: INodeTypeDescription = {
           tablePreset: ['table-under-heading'],
         },
         hide: {
-          sourceFormat: ['csv', 'json', 'n8nObject'],
           selectorMode: ['advanced'],
           tablePreset: ['all-tables', 'first-table', 'last-table', 'custom'],
         },
