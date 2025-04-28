@@ -53,6 +53,33 @@ function getPresetSelectors(preset: TablePreset, options: ConversionOptions): { 
 }
 
 /**
+ * Helper: Traverse DOM in document order after a given element, collecting <table> elements
+ */
+function findTablesAfterElement(startElem: cheerio.Element): cheerio.Element[] {
+  const tables: cheerio.Element[] = [];
+  let foundStart = false;
+  function walk(node: cheerio.Element) {
+    if (node === startElem) {
+      foundStart = true;
+    } else if (foundStart && node.type === 'tag' && node.tagName === 'table') {
+      tables.push(node);
+    }
+    if (typeof node === 'object' && node !== null && 'children' in node && Array.isArray((node as { children?: unknown }).children)) {
+      for (const child of (node as { children: cheerio.Element[] }).children) {
+        walk(child);
+      }
+    }
+  }
+  // Start from the root
+  let root = startElem;
+  while (root.parent) {
+    root = root.parent;
+  }
+  walk(root);
+  return tables;
+}
+
+/**
  * Finds a table in the HTML document based on selectors and options
  * Returns the cheerio element or null if not found
  */
@@ -97,8 +124,8 @@ function findTable($: cheerio.Root, options: ConversionOptions): cheerio.Element
       $(headingSelector).each((_, heading) => {
         const headingContent = $(heading).text().trim();
         if (headingText === '' || headingContent.toLowerCase().includes(headingText.toLowerCase())) {
-          // Use nextAll('table') to get all direct sibling tables after the heading
-          const tablesAfterHeading = $(heading).nextAll('table');
+          // Traverse DOM in document order after the heading to find tables
+          const tablesAfterHeading = findTablesAfterElement(heading);
           if (tablesAfterHeading.length >= tableIndex) {
             foundTable = tablesAfterHeading[tableIndex - 1];
             return false; // Stop after finding the correct heading and table

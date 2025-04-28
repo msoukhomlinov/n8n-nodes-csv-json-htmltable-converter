@@ -2,6 +2,14 @@
 
 All notable changes to the n8n-nodes-csv-json-htmltable-converter package will be documented in this file.
 
+## [1.2.3] - 2025-05-29
+
+### Fixed
+- Table Under Heading: Now finds tables after a heading in document order, even if separated by other elements (e.g., <p>, <div>), not just direct siblings.
+- Last Table preset: Now correctly returns the last table in the document, not the first.
+- Improved robustness for table selection presets and fixed edge cases with Cheerio selectors.
+
+
 ## [1.2.2] - 2025-05-29
 
 ### Fixed

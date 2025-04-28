@@ -51,6 +51,33 @@ function getPresetSelectors(preset: TablePreset, options: ConversionOptions): { 
 }
 
 /**
+ * Helper: Traverse DOM in document order after a given element, collecting <table> elements
+ */
+function findTablesAfterElement(startElem: cheerio.Element): cheerio.Element[] {
+  const tables: cheerio.Element[] = [];
+  let foundStart = false;
+  function walk(node: cheerio.Element) {
+    if (node === startElem) {
+      foundStart = true;
+    } else if (foundStart && node.type === 'tag' && node.tagName === 'table') {
+      tables.push(node);
+    }
+    if (typeof node === 'object' && node !== null && 'children' in node && Array.isArray((node as { children?: unknown }).children)) {
+      for (const child of (node as { children: cheerio.Element[] }).children) {
+        walk(child);
+      }
+    }
+  }
+  // Start from the root
+  let root = startElem;
+  while (root.parent) {
+    root = root.parent;
+  }
+  walk(root);
+  return tables;
+}
+
+/**
  * Extracts table data from HTML
  */
 function extractTableData(html: string, options: ConversionOptions): TableData[] {
@@ -101,8 +128,8 @@ function extractTableData(html: string, options: ConversionOptions): TableData[]
       $(headingSelector).each((_, heading) => {
         const headingContent = $(heading).text().trim();
         if (headingText === '' || headingContent.toLowerCase().includes(headingText.toLowerCase())) {
-          // Use nextAll('table') to get all direct sibling tables after the heading
-          const tablesAfterHeading = $(heading).nextAll('table');
+          // Traverse DOM in document order after the heading to find tables
+          const tablesAfterHeading = findTablesAfterElement(heading);
           if (tablesAfterHeading.length >= tableIndex) {
             foundTable = tablesAfterHeading[tableIndex - 1];
             return false; // Stop after finding the correct heading and table
@@ -169,8 +196,13 @@ function extractTableData(html: string, options: ConversionOptions): TableData[]
 
         // If multipleItems is false and we're not using "all-tables" preset, only process the first table
         if (!multipleItems && !(options.selectorMode === 'simple' && options.tablePreset === 'all-tables')) {
-          processTable($, tablesInElement[0], includeHeaders, tables);
-          return false; // Break each loop after processing the first table
+          // For 'last-table' preset, process the last table found
+          if (options.selectorMode === 'simple' && options.tablePreset === 'last-table') {
+            processTable($, tablesInElement[tablesInElement.length - 1], includeHeaders, tables);
+          } else {
+            processTable($, tablesInElement[0], includeHeaders, tables);
+          }
+          return false; // Break each loop after processing the table
         }
 
         // Process all tables if multipleItems is true or we're using "all-tables" preset
