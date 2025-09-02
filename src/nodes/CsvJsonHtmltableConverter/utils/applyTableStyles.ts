@@ -49,43 +49,54 @@ export function applyTableStyles(htmlInput: string, options: ConversionOptions):
     }
     mergeStyles($table, options.tableStyle);
 
+    const tableStyles: Record<string, string> = {};
+
     // Border style for table (CSS)
     if (options.borderStyle) {
-      $table.css('border-style', options.borderStyle);
+      tableStyles['border-style'] = options.borderStyle;
     }
 
     // Border colour for table (CSS)
     if (options.borderColor) {
-      $table.css('border-color', options.borderColor);
+      tableStyles['border-color'] = options.borderColor;
     }
 
     // Border width for table (HTML attribute and CSS)
     if (typeof options.borderWidth === 'number' && options.borderWidth >= 0) {
       $table.attr('border', options.borderWidth.toString());
-      $table.css('border-width', `${options.borderWidth}px`);
+      tableStyles['border-width'] = `${options.borderWidth}px`;
     }
 
     // Border radius for table (CSS)
     if (options.borderRadius) {
-      $table.css('border-radius', options.borderRadius);
+      tableStyles['border-radius'] = options.borderRadius;
     }
 
     // Border collapse for table (CSS)
     if (options.borderCollapse) {
-      $table.css('border-collapse', options.borderCollapse);
+      tableStyles['border-collapse'] = options.borderCollapse;
     }
 
     // Table text align (CSS)
     if (options.tableTextAlign) {
-      $table.css('text-align', options.tableTextAlign);
+      tableStyles['text-align'] = options.tableTextAlign;
+    }
+
+    if (Object.keys(tableStyles).length) {
+      $table.css(tableStyles);
     }
 
     // Row style and row text align
     $table.find('tr').each((i, row) => {
       const $row = $(row);
       mergeStyles($row, options.rowStyle);
+
+      const rowStyles: Record<string, string> = {};
       if (options.rowTextAlign) {
-        $row.css('text-align', options.rowTextAlign);
+        rowStyles['text-align'] = options.rowTextAlign;
+      }
+      if (Object.keys(rowStyles).length) {
+        $row.css(rowStyles);
       }
     });
 
@@ -93,8 +104,13 @@ export function applyTableStyles(htmlInput: string, options: ConversionOptions):
     $table.find('td, th').each((_, cell) => {
       const $cell = $(cell);
       mergeStyles($cell, options.cellStyle);
+
+      const cellStyles: Record<string, string> = {};
       if (options.cellTextAlign) {
-        $cell.css('text-align', options.cellTextAlign);
+        cellStyles['text-align'] = options.cellTextAlign;
+      }
+      if (Object.keys(cellStyles).length) {
+        $cell.css(cellStyles);
       }
     });
 
@@ -114,10 +130,15 @@ export function applyTableStyles(htmlInput: string, options: ConversionOptions):
     const $caption = $table.find('caption').first();
     if ($caption.length > 0) {
       mergeStyles($caption, options.captionStyle);
+
+      const captionStyles: Record<string, string> = {};
       if (options.captionPosition === 'bottom') {
-        $caption.css('caption-side', 'bottom');
+        captionStyles['caption-side'] = 'bottom';
       } else if (options.captionPosition === 'top') {
-        $caption.css('caption-side', 'top');
+        captionStyles['caption-side'] = 'top';
+      }
+      if (Object.keys(captionStyles).length) {
+        $caption.css(captionStyles);
       }
     }
   });
