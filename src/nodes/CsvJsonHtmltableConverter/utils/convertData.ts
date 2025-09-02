@@ -2,7 +2,6 @@ import type { FormatType, ConversionOptions } from '../types';
 import { htmlToJson, htmlToCsv, htmlToHtml } from './htmlConverter';
 import { csvToJson, csvToHtml } from './csvConverter';
 import { jsonToHtml, jsonToCsv } from './jsonConverter';
-import Papa from 'papaparse';
 import { DEFAULT_CSV_DELIMITER } from './constants';
 import { debug } from './debug';
 
@@ -44,31 +43,31 @@ export async function convertData(
         return result;
       }
       if (targetFormat === 'csv') {
-        // Convert n8nObject to CSV using PapaParse directly for better tabular format
-        // For a single object (not an array), wrap it in an array to create a table with one row
-        const dataForCsv = Array.isArray(objectData) ? objectData : [objectData];
+        const rows = Array.isArray(objectData) ? objectData : [objectData];
         const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : true;
         const delimiter = options.csvDelimiter || DEFAULT_CSV_DELIMITER;
-        let result: string;
 
-        if (dataForCsv.length > 0) {
-          if (includeHeaders) {
-            const fields = Object.keys(dataForCsv[0] as Record<string, unknown>);
-            result = Papa.unparse({
-              fields,
-              data: dataForCsv as unknown[][]
-            }, { delimiter, header: true });
-          } else {
-            // When not including headers, just output the values as arrays
-            const data = dataForCsv.map(obj => Object.values(obj as Record<string, unknown>));
-            result = Papa.unparse(data, { delimiter, header: false });
-          }
-        } else {
-          // Empty data array, return empty string
-          result = '';
+        if (rows.length === 0) {
+          return '';
         }
 
-        return result;
+        const keys = Object.keys(rows[0] as Record<string, unknown>);
+        const csvLines: string[] = [];
+
+        if (includeHeaders) {
+          csvLines.push(keys.join(delimiter));
+        }
+
+        for (const row of rows) {
+          const values = keys.map((key) => {
+            const value = (row as Record<string, unknown>)[key];
+            const str = value === undefined || value === null ? '' : String(value);
+            return str.includes(delimiter) ? `"${str.replace(/"/g, '""')}"` : str;
+          });
+          csvLines.push(values.join(delimiter));
+        }
+
+        return csvLines.join('\n');
       }
       if (targetFormat === 'json') {
         // Convert to proper JSON string
@@ -97,75 +96,42 @@ export async function convertData(
 
     // Converting to n8nObject (returns JavaScript object instead of string)
     if (targetFormat === 'n8nObject') {
+      let jsonStr: string;
       if (sourceFormat === 'html') {
-        const jsonStr = await htmlToJson(strData, options);
-        const parsedData = JSON.parse(jsonStr);
+        jsonStr = await htmlToJson(strData, options);
+      } else if (sourceFormat === 'csv') {
+        jsonStr = await csvToJson(strData, options);
+      } else if (sourceFormat === 'json') {
+        jsonStr = strData;
+      } else {
+        throw new Error(`Unsupported conversion: ${sourceFormat} to ${targetFormat}`);
+      }
 
-        // For n8n object format, return the parsed data directly without transforming to indexed objects
-        if (Array.isArray(parsedData)) {
-          // Only nest if multipleItems is true AND there are multiple items
-          if (options.multipleItems && parsedData.length > 1) {
-            return parsedData;
-          }
-          // For single item or when multipleItems=false, return the flat content
-          if (parsedData.length === 1 && Array.isArray(parsedData[0])) {
-            return parsedData[0];
-          }
+      const parsedData = JSON.parse(jsonStr);
+
+      if (sourceFormat === 'html' && Array.isArray(parsedData)) {
+        if (options.multipleItems && parsedData.length > 1) {
           return parsedData;
         }
-        return parsedData;
+        if (parsedData.length === 1 && Array.isArray(parsedData[0])) {
+          return parsedData[0];
+        }
       }
-      if (sourceFormat === 'csv') {
-        const jsonStr = await csvToJson(strData, options);
-        const parsedData = JSON.parse(jsonStr);
-        // For n8n object format, return arrays directly
-        return parsedData;
-      }
-      if (sourceFormat === 'json') {
-        const parsedData = JSON.parse(strData);
-        // For n8n object format, return arrays directly
-        return parsedData;
-      }
+
+      return parsedData;
     }
 
-    // Converting from HTML
-    if (sourceFormat === 'html') {
-      debug('convertData.ts', `HTML source conversion - includeTableHeaders: ${options.includeTableHeaders}`);
+    // Map of conversion functions for remaining format combinations
+    const converters: Record<string, Record<string, (input: string, opts: ConversionOptions) => Promise<string>>> = {
+      html: { csv: htmlToCsv, json: htmlToJson, html: htmlToHtml },
+      csv: { html: csvToHtml, json: csvToJson },
+      json: { html: jsonToHtml, csv: jsonToCsv }
+    };
 
-      if (targetFormat === 'csv') {
-        debug('convertData.ts', `Converting HTML to CSV - includeTableHeaders: ${options.includeTableHeaders}`);
-        const result = await htmlToCsv(strData, options);
-        return result;
-      }
-      if (targetFormat === 'json') {
-        debug('convertData.ts', `Converting HTML to JSON - includeTableHeaders: ${options.includeTableHeaders}`);
-        const result = await htmlToJson(strData, options);
-        return result;
-      }
-    }
-
-    // Converting from CSV
-    if (sourceFormat === 'csv') {
-      if (targetFormat === 'html') {
-        const result = await csvToHtml(strData, options);
-        return result;
-      }
-      if (targetFormat === 'json') {
-        const result = await csvToJson(strData, options);
-        return result;
-      }
-    }
-
-    // Converting from JSON
-    if (sourceFormat === 'json') {
-      if (targetFormat === 'html') {
-        const result = await jsonToHtml(strData, options);
-        return result;
-      }
-      if (targetFormat === 'csv') {
-        const result = await jsonToCsv(strData, options);
-        return result;
-      }
+    const converter = converters[sourceFormat]?.[targetFormat];
+    if (converter) {
+      debug('convertData.ts', `Converting ${sourceFormat} to ${targetFormat}`);
+      return await converter(strData, options);
     }
 
     throw new Error(`Unsupported conversion: ${sourceFormat} to ${targetFormat}`);
