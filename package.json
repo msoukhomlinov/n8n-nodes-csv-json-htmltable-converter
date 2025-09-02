@@ -33,7 +33,7 @@
   "scripts": {
     "build": "tsc && gulp build:icons",
     "dev": "tsc --watch",
-    "lint": "eslint src/**/*.ts",
+    "lint": "eslint .",
     "format": "prettier --write src/**/*.ts"
   },
   "files": [
@@ -57,11 +57,12 @@
     "gulp": "^4.0.2",
     "n8n-workflow": "~1.70.0",
     "prettier": "^2.8.7",
-    "typescript": "~5.0.4"
+    "typescript": "~5.0.4",
+    "typescript-eslint": "^8.41.0"
   },
   "dependencies": {
-    "cheerio": "^1.0.0",
     "@minify-html/node": "^0.16.4",
+    "cheerio": "^1.0.0",
     "json-2-csv": "^5.5.9",
     "papaparse": "^5.4.1"
   }
