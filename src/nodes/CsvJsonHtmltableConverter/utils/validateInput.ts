@@ -1,6 +1,7 @@
 import type { FormatType, ValidationResult } from '../types';
 import * as cheerio from 'cheerio';
 import Papa from 'papaparse';
+import { ValidationError } from './errors';
 
 /**
  * Validates the input data based on the specified format
@@ -8,37 +9,34 @@ import Papa from 'papaparse';
 export function validateInput(inputData: string | object, format: FormatType): ValidationResult {
   // Handle n8nObject format separately since it's not a string
   if (format === 'n8nObject') {
-    return validateN8nObject(inputData);
+    validateN8nObject(inputData);
+    return { valid: true };
   }
 
   // For other formats, ensure we have a string
   if (typeof inputData !== 'string') {
-    return {
-      valid: false,
-      error: `Input data must be a string for ${format} format`,
-    };
+    throw new ValidationError(`Input data must be a string for ${format} format`, { source: format });
   }
 
   if (!inputData || inputData.trim() === '') {
-    return {
-      valid: false,
-      error: 'Input data is empty',
-    };
+    throw new ValidationError('Input data is empty', { source: format });
   }
 
   switch (format) {
     case 'html':
-      return validateHtml(inputData);
+      validateHtml(inputData);
+      break;
     case 'csv':
-      return validateCsv(inputData);
+      validateCsv(inputData);
+      break;
     case 'json':
-      return validateJson(inputData);
+      validateJson(inputData);
+      break;
     default:
-      return {
-        valid: false,
-        error: `Unsupported format: ${format}`,
-      };
+      throw new ValidationError(`Unsupported format: ${format}`, { source: format });
   }
+
+  return { valid: true };
 }
 
 /**
@@ -51,18 +49,12 @@ function validateN8nObject(data: string | object): ValidationResult {
 
     // Check if the object structure is valid
     if (parsed === null || typeof parsed !== 'object') {
-      return {
-        valid: false,
-        error: 'n8n Object must be an object or array',
-      };
+      throw new ValidationError('n8n Object must be an object or array', { source: 'n8nObject' });
     }
 
     return { valid: true };
   } catch (error) {
-    return {
-      valid: false,
-      error: `Invalid n8n Object: ${error.message}`,
-    };
+    throw new ValidationError(`Invalid n8n Object: ${error.message}`, { source: 'n8nObject' });
   }
 }
 
@@ -75,18 +67,12 @@ function validateHtml(html: string): ValidationResult {
     const tables = $('table');
 
     if (tables.length === 0) {
-      return {
-        valid: false,
-        error: 'No HTML tables found in the input',
-      };
+      throw new ValidationError('No HTML tables found in the input', { source: 'html' });
     }
 
     return { valid: true };
   } catch (error) {
-    return {
-      valid: false,
-      error: `Invalid HTML: ${error.message}`,
-    };
+    throw new ValidationError(`Invalid HTML: ${error.message}`, { source: 'html' });
   }
 }
 
@@ -98,17 +84,11 @@ function validateCsv(csv: string): ValidationResult {
     const result = Papa.parse(csv, { skipEmptyLines: true });
 
     if (result.errors && result.errors.length > 0) {
-      return {
-        valid: false,
-        error: result.errors.map((e) => e.message).join(', '),
-      };
+      throw new ValidationError(result.errors.map((e) => e.message).join(', '), { source: 'csv' });
     }
 
     if (!result.data || result.data.length === 0) {
-      return {
-        valid: false,
-        error: 'CSV data is empty or contains no valid rows',
-      };
+      throw new ValidationError('CSV data is empty or contains no valid rows', { source: 'csv' });
     }
 
     // Check if all rows have the same number of columns
@@ -117,20 +97,15 @@ function validateCsv(csv: string): ValidationResult {
     const inconsistentRow = data.findIndex((row) => row.length !== firstRowLength);
 
     if (inconsistentRow !== -1) {
-      return {
-        valid: false,
-        error: `Inconsistent CSV structure: Row ${inconsistentRow + 1} has ${
-          data[inconsistentRow].length
-        } columns, expected ${firstRowLength}`,
-      };
+      throw new ValidationError(
+        `Inconsistent CSV structure: Row ${inconsistentRow + 1} has ${data[inconsistentRow].length} columns, expected ${firstRowLength}`,
+        { source: 'csv' }
+      );
     }
 
     return { valid: true };
   } catch (error) {
-    return {
-      valid: false,
-      error: `Invalid CSV: ${error.message}`,
-    };
+    throw new ValidationError(`Invalid CSV: ${error.message}`, { source: 'csv' });
   }
 }
 
@@ -143,19 +118,13 @@ function validateJson(json: string): ValidationResult {
 
     // Check if the JSON structure is valid for conversion
     if (parsed === null || typeof parsed !== 'object') {
-      return {
-        valid: false,
-        error: 'JSON must be an object or array',
-      };
+      throw new ValidationError('JSON must be an object or array', { source: 'json' });
     }
 
     // If it's an array, make sure it's not empty and validate its structure
     if (Array.isArray(parsed)) {
       if (parsed.length === 0) {
-        return {
-          valid: false,
-          error: 'JSON array is empty',
-        };
+        throw new ValidationError('JSON array is empty', { source: 'json' });
       }
 
       // Handle array of arrays (e.g. [[1,2],[3,4]]) similar to CSV row validation
@@ -214,9 +183,6 @@ function validateJson(json: string): ValidationResult {
 
     return { valid: true };
   } catch (error) {
-    return {
-      valid: false,
-      error: `Invalid JSON: ${error.message}`,
-    };
+    throw new ValidationError(`Invalid JSON: ${error.message}`, { source: 'json' });
   }
 }
