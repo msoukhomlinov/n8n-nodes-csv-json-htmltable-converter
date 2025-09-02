@@ -1,6 +1,11 @@
 import { json2csv } from 'json-2-csv';
 import type { ConversionOptions } from '../types';
-import { DEFAULT_CSV_DELIMITER, DEFAULT_INCLUDE_HEADERS, DEFAULT_PRETTY_PRINT } from './constants';
+import {
+  DEFAULT_CSV_DELIMITER,
+  DEFAULT_INCLUDE_HEADERS,
+  DEFAULT_PRETTY_PRINT,
+  MINIFY_OPTIONS,
+} from './constants';
 import minifyHtml from '@minify-html/node';
 import { escapeHtml } from './escapeHtml';
 
@@ -190,14 +195,7 @@ export async function jsonToHtml(
 
     // Apply minification if pretty print is disabled
     if (!prettyPrint) {
-      html = minifyHtml
-        .minify(Buffer.from(html), {
-          minify_whitespace: true,
-          keepComments: false,
-          keepSpacesBetweenAttributes: false,
-          keepHtmlAndHeadOpeningTags: false,
-        } as unknown as object)
-        .toString();
+      html = minifyHtml.minify(Buffer.from(html), MINIFY_OPTIONS).toString();
     }
 
     return html;
