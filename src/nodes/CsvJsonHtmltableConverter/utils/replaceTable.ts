@@ -292,8 +292,8 @@ export async function replaceTable(
 
     debugSample('replaceTable.ts', 'Updated HTML sample (pre-minify)', result);
 
-    // Apply minification if pretty print is disabled
-    if (!prettyPrint) {
+    // Apply minification only when needed and pretty print is disabled
+    if (!prettyPrint && /\s{2,}/.test(result)) {
       result = minifyHtml.minify(Buffer.from(result), MINIFY_OPTIONS).toString();
       debugSample('replaceTable.ts', 'Updated HTML sample (minified)', result);
     }

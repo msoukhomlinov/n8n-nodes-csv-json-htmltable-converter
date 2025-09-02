@@ -99,12 +99,8 @@ export async function jsonToHtml(
   jsonData: string | Record<string, unknown> | unknown[],
   options: ConversionOptions,
 ): Promise<string> {
-  const includeHeaders =
-    options.includeTableHeaders !== undefined
-      ? options.includeTableHeaders
-      : DEFAULT_INCLUDE_HEADERS;
-  const prettyPrint =
-    options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
+  const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
+  const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
 
   // Parse the input if it's a string, otherwise use as is
   const parsedData = typeof jsonData === 'string' ? parseJSON(jsonData) : jsonData;

@@ -48,13 +48,9 @@ export async function csvToJson(csv: string, options: ConversionOptions): Promis
  * Converts CSV to HTML table
  */
 export async function csvToHtml(csv: string, options: ConversionOptions): Promise<string> {
-  const includeHeaders =
-    options.includeTableHeaders !== undefined
-      ? options.includeTableHeaders
-      : DEFAULT_INCLUDE_HEADERS;
+  const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
   const result = parseCSV(csv, { ...options, includeTableHeaders: false }); // We'll handle headers manually
-  const prettyPrint =
-    options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
+  const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
 
   let html = '<table>';
   const indentation = prettyPrint ? '\n  ' : '';
