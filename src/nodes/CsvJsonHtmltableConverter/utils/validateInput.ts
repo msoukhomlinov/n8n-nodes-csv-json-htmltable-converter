@@ -121,26 +121,63 @@ function validateJson(json: string): ValidationResult {
       throw new ValidationError('JSON must be an object or array', { source: 'json' });
     }
 
-    // If it's an array, make sure it's not empty and that each item is an object
+    // If it's an array, make sure it's not empty and validate its structure
     if (Array.isArray(parsed)) {
       if (parsed.length === 0) {
         throw new ValidationError('JSON array is empty', { source: 'json' });
       }
 
-      // Check if all items in the array are objects
-      const nonObjectItem = parsed.findIndex((item) => item === null || typeof item !== 'object' || Array.isArray(item));
-      if (nonObjectItem !== -1) {
-        throw new ValidationError(`Invalid JSON structure: Item at index ${nonObjectItem} is not an object`, { source: 'json' });
-      }
+      // Handle array of arrays (e.g. [[1,2],[3,4]]) similar to CSV row validation
+      if (Array.isArray(parsed[0])) {
+        const rows = parsed as unknown[][];
 
-      // Check if all objects have the same keys
-      const firstItemKeys = Object.keys(parsed[0]).sort().join(',');
-      const inconsistentItem = parsed.findIndex(
-        (item) => Object.keys(item).sort().join(',') !== firstItemKeys
-      );
+        // Ensure all items are arrays
+        const nonArrayRow = rows.findIndex((row) => !Array.isArray(row));
+        if (nonArrayRow !== -1) {
+          return {
+            valid: false,
+            error: `Invalid JSON structure: Item at index ${nonArrayRow} is not an array`,
+          };
+        }
 
-      if (inconsistentItem !== -1) {
-        throw new ValidationError(`Inconsistent JSON structure: Item at index ${inconsistentItem} has different keys`, { source: 'json' });
+        const firstRowLength = rows[0].length;
+        const inconsistentRow = rows.findIndex((row) => row.length !== firstRowLength);
+
+        if (inconsistentRow !== -1) {
+          return {
+            valid: false,
+            error: `Inconsistent JSON structure: Row ${inconsistentRow + 1} has ${
+              rows[inconsistentRow].length
+            } columns, expected ${firstRowLength}`,
+          };
+        }
+      } else {
+        // Array of objects
+        const items = parsed as Array<Record<string, unknown>>;
+
+        // Check if all items in the array are objects
+        const nonObjectItem = items.findIndex(
+          (item) => item === null || typeof item !== 'object' || Array.isArray(item)
+        );
+        if (nonObjectItem !== -1) {
+          return {
+            valid: false,
+            error: `Invalid JSON structure: Item at index ${nonObjectItem} is not an object`,
+          };
+        }
+
+        // Check if all objects have the same keys
+        const firstItemKeys = Object.keys(items[0]).sort().join(',');
+        const inconsistentItem = items.findIndex(
+          (item) => Object.keys(item).sort().join(',') !== firstItemKeys
+        );
+
+        if (inconsistentItem !== -1) {
+          return {
+            valid: false,
+            error: `Inconsistent JSON structure: Item at index ${inconsistentItem} has different keys`,
+          };
+        }
       }
     }
 
