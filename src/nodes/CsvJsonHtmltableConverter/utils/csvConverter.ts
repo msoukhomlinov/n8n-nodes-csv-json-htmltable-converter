@@ -7,6 +7,8 @@ import {
   DEFAULT_PRETTY_PRINT,
   MINIFY_OPTIONS,
 } from './constants';
+import { escapeHtml } from './escapeHtml';
+
 
 /**
  * Parses CSV data into a structured format
@@ -48,9 +50,14 @@ export async function csvToJson(csv: string, options: ConversionOptions): Promis
  * Converts CSV to HTML table
  */
 export async function csvToHtml(csv: string, options: ConversionOptions): Promise<string> {
-  const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
-  const result = parseCSV(csv, { ...options, includeTableHeaders: false });
-  const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
+  const includeHeaders =
+    options.includeTableHeaders !== undefined
+      ? options.includeTableHeaders
+      : DEFAULT_INCLUDE_HEADERS;
+  const result = parseCSV(csv, { ...options, includeTableHeaders: false }); // We'll handle headers manually
+  const prettyPrint =
+    options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
+
 
   const indentation = prettyPrint ? '\n  ' : '';
   let dataRows = result.data as string[][];
@@ -83,16 +90,4 @@ export async function csvToHtml(csv: string, options: ConversionOptions): Promis
   }
 
   return html;
-}
-
-/**
- * Escapes HTML special characters to prevent XSS
- */
-function escapeHtml(unsafe: string): string {
-  return unsafe
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
 }

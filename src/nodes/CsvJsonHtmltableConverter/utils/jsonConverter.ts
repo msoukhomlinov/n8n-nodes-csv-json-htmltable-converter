@@ -7,6 +7,7 @@ import {
   MINIFY_OPTIONS,
 } from './constants';
 import minifyHtml from '@minify-html/node';
+import { escapeHtml } from './escapeHtml';
 
 /**
  * Parses JSON data into a structured format
@@ -99,8 +100,12 @@ export async function jsonToHtml(
   jsonData: string | Record<string, unknown> | unknown[],
   options: ConversionOptions,
 ): Promise<string> {
-  const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
-  const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
+  const includeHeaders =
+    options.includeTableHeaders !== undefined
+      ? options.includeTableHeaders
+      : DEFAULT_INCLUDE_HEADERS;
+  const prettyPrint =
+    options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
 
   // Parse the input if it's a string, otherwise use as is
   const parsedData = typeof jsonData === 'string' ? parseJSON(jsonData) : jsonData;
@@ -163,7 +168,6 @@ export async function jsonToHtml(
       }
       html += `${indentation}</tbody>`;
     } else {
-
       throw new Error('Unsupported JSON structure for HTML conversion');
     }
 
@@ -178,16 +182,4 @@ export async function jsonToHtml(
   } catch (error) {
     throw new Error(`JSON to HTML conversion error: ${error.message}`);
   }
-}
-
-/**
- * Escapes HTML special characters to prevent XSS
- */
-function escapeHtml(unsafe: string): string {
-  return unsafe
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
 }
