@@ -9,9 +9,13 @@ function parseStyleString(style?: string): Record<string, string> {
     .map((decl) => decl.trim())
     .filter(Boolean)
     .forEach((decl) => {
-      const [property, value] = decl.split(':');
-      if (property && value) {
-        styles[property.trim()] = value.trim();
+      const colonIndex = decl.indexOf(':');
+      if (colonIndex !== -1) {
+        const property = decl.slice(0, colonIndex).trim();
+        const value = decl.slice(colonIndex + 1).trim();
+        if (property && value) {
+          styles[property] = value;
+        }
       }
     });
   return styles;
