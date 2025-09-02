@@ -22,6 +22,7 @@ function parseStyleString(style?: string): Record<string, string> {
 }
 
 function mergeStyles($el: cheerio.Cheerio, style?: string): void {
+  if (!style) return;
   const parsed = parseStyleString(style);
   if (Object.keys(parsed).length > 0) {
     $el.css(parsed);
