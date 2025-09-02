@@ -4,6 +4,7 @@ import { csvToJson, csvToHtml } from './csvConverter';
 import { jsonToHtml, jsonToCsv } from './jsonConverter';
 import { DEFAULT_CSV_DELIMITER } from './constants';
 import { debug } from './debug';
+import { ConversionError, ValidationError } from './errors';
 
 /**
  * Converts data from one format to another based on the specified source and target formats
@@ -134,9 +135,18 @@ export async function convertData(
       return await converter(strData, options);
     }
 
-    throw new Error(`Unsupported conversion: ${sourceFormat} to ${targetFormat}`);
-  } catch (error) {
-    debug('convertData.ts', `Error in convertData: ${error.message}`, error);
-    throw new Error(`Conversion error (${sourceFormat} to ${targetFormat}): ${error.message}`);
+      throw new ConversionError(`Unsupported conversion: ${sourceFormat} to ${targetFormat}`, {
+        source: sourceFormat,
+        target: targetFormat,
+      });
+    } catch (error) {
+      debug('convertData.ts', `Error in convertData: ${error.message}`, error);
+      if (error instanceof ConversionError || error instanceof ValidationError) {
+        throw error;
+      }
+      throw new ConversionError(`Conversion error (${sourceFormat} to ${targetFormat}): ${error.message}`, {
+        source: sourceFormat,
+        target: targetFormat,
+      });
+    }
   }
-}

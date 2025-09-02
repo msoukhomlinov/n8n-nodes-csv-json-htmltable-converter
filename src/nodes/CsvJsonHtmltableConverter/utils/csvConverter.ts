@@ -1,19 +1,13 @@
 import Papa from 'papaparse';
 import minifyHtml from '@minify-html/node';
-import type { ConversionOptions } from '../types';
-import {
-  DEFAULT_CSV_DELIMITER,
-  DEFAULT_INCLUDE_HEADERS,
-  DEFAULT_PRETTY_PRINT,
-  MINIFY_OPTIONS,
-} from './constants';
-import { escapeHtml } from './escapeHtml';
-
+import type { ConversionOptions, FormatType } from '../types';
+import { DEFAULT_CSV_DELIMITER, DEFAULT_INCLUDE_HEADERS, DEFAULT_PRETTY_PRINT } from './constants';
+import { ValidationError } from './errors';
 
 /**
  * Parses CSV data into a structured format
  */
-function parseCSV(csv: string, options: ConversionOptions) {
+function parseCSV(csv: string, options: ConversionOptions, target: FormatType) {
   const delimiter = options.csvDelimiter || DEFAULT_CSV_DELIMITER;
   const includeHeaders =
     options.includeTableHeaders !== undefined
@@ -27,7 +21,10 @@ function parseCSV(csv: string, options: ConversionOptions) {
   });
 
   if (result.errors && result.errors.length > 0) {
-    throw new Error(`CSV parsing error: ${result.errors[0].message}`);
+    throw new ValidationError(`CSV parsing error: ${result.errors[0].message}`, {
+      source: 'csv',
+      target,
+    });
   }
 
   return result;
@@ -37,9 +34,8 @@ function parseCSV(csv: string, options: ConversionOptions) {
  * Converts CSV to JSON
  */
 export async function csvToJson(csv: string, options: ConversionOptions): Promise<string> {
-  const result = parseCSV(csv, options);
-  const prettyPrint =
-    options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
+  const result = parseCSV(csv, options, 'json');
+  const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
 
   // If we have headers, result.data will already be an array of objects
   // If not, result.data will be an array of arrays
@@ -50,14 +46,9 @@ export async function csvToJson(csv: string, options: ConversionOptions): Promis
  * Converts CSV to HTML table
  */
 export async function csvToHtml(csv: string, options: ConversionOptions): Promise<string> {
-  const includeHeaders =
-    options.includeTableHeaders !== undefined
-      ? options.includeTableHeaders
-      : DEFAULT_INCLUDE_HEADERS;
-  const result = parseCSV(csv, { ...options, includeTableHeaders: false }); // We'll handle headers manually
-  const prettyPrint =
-    options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
-
+  const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
+  const result = parseCSV(csv, { ...options, includeTableHeaders: false }, 'html'); // We'll handle headers manually
+  const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
 
   const indentation = prettyPrint ? '\n  ' : '';
   let dataRows = result.data as string[][];

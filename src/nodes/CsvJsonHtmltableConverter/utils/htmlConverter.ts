@@ -1,9 +1,10 @@
 import * as cheerio from 'cheerio';
 import Papa from 'papaparse';
 import minifyHtml from '@minify-html/node';
-import type { ConversionOptions, TableData, TablePreset } from '../types';
-import { DEFAULT_INCLUDE_HEADERS, DEFAULT_PRETTY_PRINT, MINIFY_OPTIONS } from './constants';
+import type { ConversionOptions, TableData, TablePreset, FormatType } from '../types';
+import { DEFAULT_INCLUDE_HEADERS, DEFAULT_PRETTY_PRINT } from './constants';
 import { debug, debugSample } from './debug';
+import { ValidationError } from './errors';
 
 /**
  * Maps preset options to corresponding selectors
@@ -80,7 +81,7 @@ function findTablesAfterElement(startElem: cheerio.Element): cheerio.Element[] {
 /**
  * Extracts table data from HTML
  */
-function extractTableData(html: string, options: ConversionOptions): TableData[] {
+function extractTableData(html: string, options: ConversionOptions, target: FormatType): TableData[] {
   const $ = cheerio.load(html);
   const tables: TableData[] = [];
   const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
@@ -121,7 +122,10 @@ function extractTableData(html: string, options: ConversionOptions): TableData[]
       const tableIndex = config.tableIndex;
       // Validate headingLevel
       if (typeof headingLevel !== 'number' || headingLevel < 1 || headingLevel > 999) {
-        throw new Error('Heading Level must be a number between 1 and 999.');
+        throw new ValidationError('Heading Level must be a number between 1 and 999.', {
+          source: 'html',
+          target,
+        });
       }
       // Find all headings with the specified text
       let foundTable = null;
@@ -140,7 +144,10 @@ function extractTableData(html: string, options: ConversionOptions): TableData[]
       if (foundTable) {
         processTable($, foundTable, includeHeaders, tables);
       } else {
-        throw new Error(`No tables found after heading level h${headingLevel} containing "${headingText || 'any text'}" at index ${tableIndex}. Please check your HTML structure or try another preset.`);
+        throw new ValidationError(
+          `No tables found after heading level h${headingLevel} containing "${headingText || 'any text'}" at index ${tableIndex}. Please check your HTML structure or try another preset.`,
+          { source: 'html', target }
+        );
       }
       return tables;
     }
@@ -163,8 +170,9 @@ function extractTableData(html: string, options: ConversionOptions): TableData[]
         }
       });
       if (matchingTables.length === 0) {
-        throw new Error(
-          `No tables found with <caption> containing "${captionText || 'any text'}". Please check your HTML or try another preset.`
+        throw new ValidationError(
+          `No tables found with <caption> containing "${captionText || 'any text'}". Please check your HTML or try another preset.`,
+          { source: 'html', target }
         );
       }
       if (multipleItems) {
@@ -181,7 +189,10 @@ function extractTableData(html: string, options: ConversionOptions): TableData[]
     const elements = elementSelector ? $(elementSelector) : $.root();
 
     if (elements.length === 0) {
-      throw new Error(`No elements found matching the selector: "${elementSelector}". Try using a more general selector like "html" or "body".`);
+      throw new ValidationError(
+        `No elements found matching the selector: "${elementSelector}". Try using a more general selector like "html" or "body".`,
+        { source: 'html', target }
+      );
     }
 
     // Find tables within those elements
@@ -221,7 +232,10 @@ function extractTableData(html: string, options: ConversionOptions): TableData[]
         : '\nHere are some suggestions:\n- Check if your HTML actually contains <table> elements\n- Try using a more general selector like "table" or "div table"\n- Switch to Simple mode and try the different presets\n- Use browser developer tools to identify the correct selectors';
 
       const elementSelectorMsg = elementSelector ? ` matching: "${elementSelector}"` : '';
-      throw new Error(`No tables found matching the selector: "${tableSelector}" within elements${elementSelectorMsg}.${helpfulMessage}`);
+      throw new ValidationError(
+        `No tables found matching the selector: "${tableSelector}" within elements${elementSelectorMsg}.${helpfulMessage}`,
+        { source: 'html', target }
+      );
     }
 
     // If we found a large number of tables, add a note to the first table
@@ -239,12 +253,21 @@ function extractTableData(html: string, options: ConversionOptions): TableData[]
         + '\nTry switching to Simple mode and using a preset, or see Cheerio documentation for supported selectors.';
 
       if (elementSelector && error.message.includes(elementSelector)) {
-        throw new Error(`Invalid element selector syntax: "${elementSelector}".${helpfulMessage}`);
+        throw new ValidationError(`Invalid element selector syntax: "${elementSelector}".${helpfulMessage}`, {
+          source: 'html',
+          target,
+        });
       }
       if (tableSelector && error.message.includes(tableSelector)) {
-        throw new Error(`Invalid table selector syntax: "${tableSelector}".${helpfulMessage}`);
+        throw new ValidationError(`Invalid table selector syntax: "${tableSelector}".${helpfulMessage}`, {
+          source: 'html',
+          target,
+        });
       }
-      throw new Error(`Invalid selector syntax. Please check your selectors.${helpfulMessage}`);
+      throw new ValidationError(`Invalid selector syntax. Please check your selectors.${helpfulMessage}`, {
+        source: 'html',
+        target,
+      });
     }
     throw error;
   }
@@ -376,7 +399,7 @@ function tableDataToHtml(table: TableData): string {
  * Converts HTML table(s) to JSON
  */
 export async function htmlToJson(html: string, options: ConversionOptions): Promise<string> {
-  const tables = extractTableData(html, options);
+  const tables = extractTableData(html, options, 'json');
 
   // Log extracted tables HTML
   if (tables.length > 0) {
@@ -390,7 +413,10 @@ export async function htmlToJson(html: string, options: ConversionOptions): Prom
   debug('htmlConverter.ts', `htmlToJson - includeTableHeaders: ${includeHeaders}`, { originalOption: options.includeTableHeaders, default: DEFAULT_INCLUDE_HEADERS });
 
   if (tables.length === 0) {
-    throw new Error('No tables found in HTML');
+    throw new ValidationError('No tables found in HTML', {
+      source: 'html',
+      target: 'json',
+    });
   }
 
   // Only nest output if multipleItems is true AND we have multiple tables
@@ -467,7 +493,7 @@ export async function htmlToJson(html: string, options: ConversionOptions): Prom
  * Converts HTML table(s) to CSV
  */
 export async function htmlToCsv(html: string, options: ConversionOptions): Promise<string> {
-  const tables = extractTableData(html, options);
+  const tables = extractTableData(html, options, 'csv');
 
   // Log extracted tables HTML
   if (tables.length > 0) {
@@ -480,7 +506,10 @@ export async function htmlToCsv(html: string, options: ConversionOptions): Promi
   debug('htmlConverter.ts', `htmlToCsv - includeTableHeaders: ${includeHeaders}`, { originalOption: options.includeTableHeaders, default: DEFAULT_INCLUDE_HEADERS });
 
   if (tables.length === 0) {
-    throw new Error('No tables found in HTML');
+    throw new ValidationError('No tables found in HTML', {
+      source: 'html',
+      target: 'csv',
+    });
   }
 
   const delimiter = options.csvDelimiter || ',';
@@ -550,7 +579,7 @@ export async function htmlToCsv(html: string, options: ConversionOptions): Promi
  * Converts HTML table(s) to standardized HTML table(s)
  */
 export async function htmlToHtml(html: string, options: ConversionOptions): Promise<string> {
-  const tables = extractTableData(html, options);
+  const tables = extractTableData(html, options, 'html');
 
   // Log extracted tables HTML
   if (tables.length > 0) {
@@ -561,7 +590,10 @@ export async function htmlToHtml(html: string, options: ConversionOptions): Prom
   const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
 
   if (tables.length === 0) {
-    throw new Error('No tables found in HTML');
+    throw new ValidationError('No tables found in HTML', {
+      source: 'html',
+      target: 'html',
+    });
   }
 
   let output = '';
