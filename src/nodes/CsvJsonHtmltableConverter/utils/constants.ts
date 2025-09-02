@@ -1,3 +1,5 @@
+import type { minify as minifyFn } from '@minify-html/node';
+
 export const FORMAT_OPTIONS = [
   {
     name: 'HTML',
@@ -43,3 +45,10 @@ export const DEFAULT_CSV_DELIMITER = ',';
 export const DEFAULT_INCLUDE_HEADERS = true;
 export const DEFAULT_PRETTY_PRINT = false;
 export const DEFAULT_MULTIPLE_ITEMS = false;
+
+export const MINIFY_OPTIONS = {
+  minify_whitespace: true,
+  keep_comments: false,
+  keep_spaces_between_attributes: false,
+  keep_html_and_head_opening_tags: false,
+} as Parameters<typeof minifyFn>[1];

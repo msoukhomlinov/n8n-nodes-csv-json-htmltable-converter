@@ -1,6 +1,11 @@
 import { json2csv } from 'json-2-csv';
 import type { ConversionOptions } from '../types';
-import { DEFAULT_CSV_DELIMITER, DEFAULT_INCLUDE_HEADERS, DEFAULT_PRETTY_PRINT } from './constants';
+import {
+  DEFAULT_CSV_DELIMITER,
+  DEFAULT_INCLUDE_HEADERS,
+  DEFAULT_PRETTY_PRINT,
+  MINIFY_OPTIONS,
+} from './constants';
 import minifyHtml from '@minify-html/node';
 
 /**
@@ -19,31 +24,43 @@ function parseJSON(jsonStr: string) {
  */
 export async function jsonToCsv(jsonStr: string, options: ConversionOptions): Promise<string> {
   const delimiter = options.csvDelimiter || DEFAULT_CSV_DELIMITER;
-  const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
+  const includeHeaders =
+    options.includeTableHeaders !== undefined
+      ? options.includeTableHeaders
+      : DEFAULT_INCLUDE_HEADERS;
   const jsonData = parseJSON(jsonStr);
 
   // Handle different JSON structures (array of objects, array of arrays, etc.)
   try {
     // For array of objects, use json2csv parser
-    if (Array.isArray(jsonData) && jsonData.length > 0 && typeof jsonData[0] === 'object' && !Array.isArray(jsonData[0])) {
+    if (
+      Array.isArray(jsonData) &&
+      jsonData.length > 0 &&
+      typeof jsonData[0] === 'object' &&
+      !Array.isArray(jsonData[0])
+    ) {
       const fields = Object.keys(jsonData[0]);
       const optionsCsv = {
         delimiter: { field: delimiter },
         prependHeader: includeHeaders,
-        keys: fields
+        keys: fields,
       };
       return await json2csv(jsonData, optionsCsv);
     }
 
     // For array of arrays, convert directly
     if (Array.isArray(jsonData) && jsonData.length > 0 && Array.isArray(jsonData[0])) {
-      return jsonData.map(row =>
-        row.map((cell: unknown) =>
-          typeof cell === 'string' && cell.includes(delimiter) ?
-            `"${cell.replace(/"/g, '""')}"` :
-            String(cell)
-        ).join(delimiter)
-      ).join('\n');
+      return jsonData
+        .map((row) =>
+          row
+            .map((cell: unknown) =>
+              typeof cell === 'string' && cell.includes(delimiter)
+                ? `"${cell.replace(/"/g, '""')}"`
+                : String(cell),
+            )
+            .join(delimiter),
+        )
+        .join('\n');
     }
 
     // For simple objects, convert to array of key-value pairs
@@ -56,12 +73,14 @@ export async function jsonToCsv(jsonStr: string, options: ConversionOptions): Pr
       }
 
       for (const [key, value] of Object.entries(jsonData)) {
-        rows.push([
-          key,
-          typeof value === 'string' && value.includes(delimiter) ?
-            `"${value.replace(/"/g, '""')}"` :
-            String(value)
-        ].join(delimiter));
+        rows.push(
+          [
+            key,
+            typeof value === 'string' && value.includes(delimiter)
+              ? `"${value.replace(/"/g, '""')}"`
+              : String(value),
+          ].join(delimiter),
+        );
       }
 
       return rows.join('\n');
@@ -78,7 +97,7 @@ export async function jsonToCsv(jsonStr: string, options: ConversionOptions): Pr
  */
 export async function jsonToHtml(
   jsonData: string | Record<string, unknown> | unknown[],
-  options: ConversionOptions
+  options: ConversionOptions,
 ): Promise<string> {
   const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
   const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
@@ -91,7 +110,12 @@ export async function jsonToHtml(
 
   try {
     // Array of objects - most common case
-    if (Array.isArray(parsedData) && parsedData.length > 0 && typeof parsedData[0] === 'object' && !Array.isArray(parsedData[0])) {
+    if (
+      Array.isArray(parsedData) &&
+      parsedData.length > 0 &&
+      typeof parsedData[0] === 'object' &&
+      !Array.isArray(parsedData[0])
+    ) {
       const headers = Object.keys(parsedData[0]);
 
       if (includeHeaders) {
@@ -137,9 +161,9 @@ export async function jsonToHtml(
       for (const [key, value] of Object.entries(parsedData)) {
         parts.push(`${indentation}  <tr>`, `${indentation}    <td>${escapeHtml(key)}</td>`, `${indentation}    <td>${escapeHtml(String(value))}</td>`, `${indentation}  </tr>`);
       }
-      parts.push(`${indentation}</tbody>`);
-    }
-    else {
+      html += `${indentation}</tbody>`;
+    } else {
+
       throw new Error('Unsupported JSON structure for HTML conversion');
     }
 
@@ -147,12 +171,7 @@ export async function jsonToHtml(
 
     let html = parts.join('');
     if (!prettyPrint) {
-      html = minifyHtml.minify(Buffer.from(html), {
-        minify_whitespace: true,
-        keepComments: false,
-        keepSpacesBetweenAttributes: false,
-        keepHtmlAndHeadOpeningTags: false
-      } as unknown as object).toString();
+      html = minifyHtml.minify(Buffer.from(html), MINIFY_OPTIONS).toString();
     }
 
     return html;
