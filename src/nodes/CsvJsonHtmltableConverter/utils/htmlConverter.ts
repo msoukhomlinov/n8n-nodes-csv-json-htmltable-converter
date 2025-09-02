@@ -1,10 +1,15 @@
 import * as cheerio from 'cheerio';
 import Papa from 'papaparse';
 import minifyHtml from '@minify-html/node';
-import type { ConversionOptions, TableData } from '../types';
-import { DEFAULT_INCLUDE_HEADERS, DEFAULT_PRETTY_PRINT } from './constants';
+import type { ConversionOptions, TableData, FormatType } from '../types';
+import {
+  DEFAULT_INCLUDE_HEADERS,
+  DEFAULT_PRETTY_PRINT,
+  MINIFY_OPTIONS,
+} from './constants';
 import { debug, debugSample } from './debug';
 import { getPresetSelectors, findTablesAfterElement } from './tableSelectors';
+import { ValidationError } from './errors';
 
 /**
  * Extracts table data from HTML
@@ -684,14 +689,7 @@ export async function htmlToHtml(html: string, options: ConversionOptions): Prom
 
   // Apply minification if pretty print is disabled
   if (!prettyPrint) {
-    output = minifyHtml
-      .minify(Buffer.from(output), {
-        minify_whitespace: true,
-        keepComments: false,
-        keepSpacesBetweenAttributes: false,
-        keepHtmlAndHeadOpeningTags: false,
-      } as unknown as object)
-      .toString();
+    output = minifyHtml.minify(Buffer.from(output), MINIFY_OPTIONS).toString();
   }
 
   return output;

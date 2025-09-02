@@ -1,4 +1,4 @@
-import type { minify as minifyFn } from '@minify-html/node';
+// Minifier options for @minify-html/node
 
 export const FORMAT_OPTIONS = [
   {
@@ -47,7 +47,7 @@ export const DEFAULT_PRETTY_PRINT = false;
 export const DEFAULT_MULTIPLE_ITEMS = false;
 export const MINIFY_OPTIONS = {
   minify_whitespace: true,
-  keepComments: false,
-  keepSpacesBetweenAttributes: false,
-  keepHtmlAndHeadOpeningTags: false,
-} as unknown as object;
+  keep_comments: false,
+  keep_spaces_between_attributes: false,
+  keep_html_and_head_opening_tags: false,
+};

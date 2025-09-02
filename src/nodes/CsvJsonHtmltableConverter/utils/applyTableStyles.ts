@@ -52,8 +52,6 @@ export function applyTableStyles(htmlInput: string, options: ConversionOptions):
 
     const tableStyles: Record<string, string> = {};
 
-    const tableStyles: Record<string, string> = {};
-
     if (options.borderStyle) {
       tableStyles['border-style'] = options.borderStyle;
     }

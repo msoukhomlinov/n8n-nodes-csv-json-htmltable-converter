@@ -3,6 +3,7 @@ import type { ConversionOptions } from '../types';
 import minifyHtml from '@minify-html/node';
 import { DEFAULT_PRETTY_PRINT, MINIFY_OPTIONS } from './constants';
 import { debug, debugSample } from './debug';
+import { ConversionError, ValidationError } from './errors';
 import { getPresetSelectors, findTablesAfterElement } from './tableSelectors';
 
 /**
@@ -228,12 +229,7 @@ export async function replaceTable(
     // Apply minification if pretty print is disabled
     if (!prettyPrint) {
       result = minifyHtml
-        .minify(Buffer.from(result), {
-          minify_whitespace: true,
-          keepComments: false,
-          keepSpacesBetweenAttributes: false,
-          keepHtmlAndHeadOpeningTags: false,
-        } as unknown as object)
+        .minify(Buffer.from(result), MINIFY_OPTIONS)
         .toString();
       debugSample('replaceTable.ts', 'Updated HTML sample (minified)', result);
     }

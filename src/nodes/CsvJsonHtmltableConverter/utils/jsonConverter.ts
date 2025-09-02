@@ -1,9 +1,14 @@
 import { json2csv } from 'json-2-csv';
-
-import type { ConversionOptions, FormatType } from '../types';
-import { DEFAULT_CSV_DELIMITER, DEFAULT_INCLUDE_HEADERS, DEFAULT_PRETTY_PRINT } from './constants';
 import minifyHtml from '@minify-html/node';
+import type { ConversionOptions, FormatType } from '../types';
+import {
+  DEFAULT_CSV_DELIMITER,
+  DEFAULT_INCLUDE_HEADERS,
+  DEFAULT_PRETTY_PRINT,
+  MINIFY_OPTIONS,
+} from './constants';
 import { ConversionError, ValidationError } from './errors';
+import { escapeHtml } from './escapeHtml';
 
 /**
  * Parses JSON data into a structured format
@@ -137,24 +142,22 @@ export async function jsonToHtml(
       }
 
       parts.push(`${indentation}<tbody>`);
-
       for (const row of parsedData) {
         parts.push(`${indentation}  <tr>`);
         for (const header of headers) {
-          const cellValue = row[header] !== undefined ? row[header] : '';
+          const cellValue = (row as Record<string, unknown>)[header] ?? '';
           parts.push(`${indentation}    <td>${escapeHtml(String(cellValue))}</td>`);
         }
         parts.push(`${indentation}  </tr>`);
       }
-
       parts.push(`${indentation}</tbody>`);
     }
     // Array of arrays
     else if (Array.isArray(parsedData) && parsedData.length > 0 && Array.isArray(parsedData[0])) {
       parts.push(`${indentation}<tbody>`);
-      for (const row of parsedData) {
+      for (const row of parsedData as unknown[]) {
         parts.push(`${indentation}  <tr>`);
-        for (const cell of row) {
+        for (const cell of row as unknown[]) {
           parts.push(`${indentation}    <td>${escapeHtml(String(cell))}</td>`);
         }
         parts.push(`${indentation}  </tr>`);
@@ -162,45 +165,50 @@ export async function jsonToHtml(
       parts.push(`${indentation}</tbody>`);
     }
     // Simple object
-      else if (typeof parsedData === 'object' && !Array.isArray(parsedData)) {
+    else if (typeof parsedData === 'object' && parsedData !== null) {
       if (includeHeaders) {
-        parts.push(`${indentation}<thead>`, `${indentation}  <tr>`, `${indentation}    <th>Key</th>`, `${indentation}    <th>Value</th>`, `${indentation}  </tr>`, `${indentation}</thead>`);
+        parts.push(
+          `${indentation}<thead>`,
+          `${indentation}  <tr>`,
+          `${indentation}    <th>Key</th>`,
+          `${indentation}    <th>Value</th>`,
+          `${indentation}  </tr>`,
+          `${indentation}</thead>`,
+        );
       }
 
       parts.push(`${indentation}<tbody>`);
-      for (const [key, value] of Object.entries(parsedData)) {
-        parts.push(`${indentation}  <tr>`, `${indentation}    <td>${escapeHtml(key)}</td>`, `${indentation}    <td>${escapeHtml(String(value))}</td>`, `${indentation}  </tr>`);
+      for (const [key, value] of Object.entries(parsedData as Record<string, unknown>)) {
+        parts.push(
+          `${indentation}  <tr>`,
+          `${indentation}    <td>${escapeHtml(key)}</td>`,
+          `${indentation}    <td>${escapeHtml(String(value))}</td>`,
+          `${indentation}  </tr>`,
+        );
       }
-      html += `${indentation}</tbody>`;
-    }
-      else {
-        throw new ConversionError('Unsupported JSON structure for HTML conversion', {
-          source: 'json',
-          target: 'html',
-        });
-      }
-
-      html += prettyPrint ? '\n</table>' : '</table>';
-
-      // Apply minification if pretty print is disabled
-      if (!prettyPrint) {
-        html = minifyHtml.minify(Buffer.from(html), {
-          minify_whitespace: true,
-          keepComments: false,
-          keepSpacesBetweenAttributes: false,
-          keepHtmlAndHeadOpeningTags: false
-        } as unknown as object).toString();
-      }
-
-
-      return html;
-    } catch (error) {
-      if (error instanceof ConversionError || error instanceof ValidationError) {
-        throw error;
-      }
-      throw new ConversionError(`JSON to HTML conversion error: ${error.message}`, {
+      parts.push(`${indentation}</tbody>`);
+    } else {
+      throw new ConversionError('Unsupported JSON structure for HTML conversion', {
         source: 'json',
         target: 'html',
       });
     }
+
+    parts.push(prettyPrint ? '\n</table>' : '</table>');
+    let html = parts.join('');
+
+    if (!prettyPrint) {
+      html = minifyHtml.minify(Buffer.from(html), MINIFY_OPTIONS).toString();
+    }
+
+    return html;
+  } catch (error) {
+    if (error instanceof ConversionError || error instanceof ValidationError) {
+      throw error;
+    }
+    throw new ConversionError(`JSON to HTML conversion error: ${error.message}`, {
+      source: 'json',
+      target: 'html',
+    });
+  }
 }
