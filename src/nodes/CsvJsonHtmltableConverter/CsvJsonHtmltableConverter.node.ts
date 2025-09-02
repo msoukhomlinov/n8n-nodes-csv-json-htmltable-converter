@@ -13,6 +13,7 @@ import { replaceTable } from './utils/replaceTable';
 import { debug } from './utils/debug';
 import minifyHtml from '@minify-html/node';
 import { applyTableStyles } from './utils/applyTableStyles';
+import { MINIFY_OPTIONS } from './utils/constants';
 
 export class CsvJsonHtmltableConverter implements INodeType {
   description: INodeTypeDescription = nodeDescription;
@@ -268,14 +269,9 @@ export class CsvJsonHtmltableConverter implements INodeType {
             const htmlTable = await jsonToHtml(allItems, options);
 
             // Minify the HTML if pretty print is disabled
-            finalResult = !prettyPrint ?
-              minifyHtml.minify(Buffer.from(htmlTable), {
-                minify_whitespace: true,
-                keepComments: false,
-                keepSpacesBetweenAttributes: false,
-                keepHtmlAndHeadOpeningTags: false
-              } as unknown as object).toString() :
-              htmlTable;
+            finalResult = !prettyPrint
+              ? minifyHtml.minify(Buffer.from(htmlTable), MINIFY_OPTIONS).toString()
+              : htmlTable;
           } else if (targetFormat === 'csv') {
             // For CSV, use Papa.unparse directly to ensure consistent output
             const result = Papa.unparse(allItems, {

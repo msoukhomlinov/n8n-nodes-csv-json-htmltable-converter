@@ -1,3 +1,5 @@
+import type { minify as minifyFn } from '@minify-html/node';
+
 export const FORMAT_OPTIONS = [
   {
     name: 'HTML',
