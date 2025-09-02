@@ -1,3 +1,5 @@
+import type { minify as minifyFn } from '@minify-html/node';
+
 export const FORMAT_OPTIONS = [
   {
     name: 'HTML',
@@ -49,4 +51,4 @@ export const MINIFY_OPTIONS = {
   keep_comments: false,
   keep_spaces_between_attributes: false,
   keep_html_and_head_opening_tags: false,
-} as unknown as object;
+} as Parameters<typeof minifyFn>[1];
