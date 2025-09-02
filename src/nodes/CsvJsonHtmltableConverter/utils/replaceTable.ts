@@ -4,6 +4,13 @@ import minifyHtml from '@minify-html/node';
 import { DEFAULT_PRETTY_PRINT } from './constants';
 import { debug, debugSample } from './debug';
 
+const MINIFY_OPTIONS = {
+  minify_whitespace: true,
+  keepComments: false,
+  keepSpacesBetweenAttributes: false,
+  keepHtmlAndHeadOpeningTags: false
+} as unknown as object;
+
 /**
  * Maps preset options to corresponding selectors
  * This is reused from htmlConverter.ts
@@ -264,14 +271,9 @@ export async function replaceTable(
 
     debugSample('replaceTable.ts', 'Updated HTML sample (pre-minify)', result);
 
-    // Apply minification if pretty print is disabled
-    if (!prettyPrint) {
-      result = minifyHtml.minify(Buffer.from(result), {
-        minify_whitespace: true,
-        keepComments: false,
-        keepSpacesBetweenAttributes: false,
-        keepHtmlAndHeadOpeningTags: false
-      } as unknown as object).toString();
+    // Apply minification only when needed and pretty print is disabled
+    if (!prettyPrint && /\s{2,}/.test(result)) {
+      result = minifyHtml.minify(Buffer.from(result), MINIFY_OPTIONS).toString();
       debugSample('replaceTable.ts', 'Updated HTML sample (minified)', result);
     }
 

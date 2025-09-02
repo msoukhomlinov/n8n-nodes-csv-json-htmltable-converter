@@ -24,35 +24,29 @@ export function applyTableStyles(htmlInput: string, options: ConversionOptions):
       $table.attr('style', options.tableStyle);
     }
 
-    // Border style for table (CSS)
+    const tableStyles: Record<string, string> = {};
+
     if (options.borderStyle) {
-      $table.attr('style', `${$table.attr('style') || ''}border-style: ${options.borderStyle};`);
+      tableStyles['border-style'] = options.borderStyle;
     }
-
-    // Border colour for table (CSS)
     if (options.borderColor) {
-      $table.attr('style', `${$table.attr('style') || ''}border-color: ${options.borderColor};`);
+      tableStyles['border-color'] = options.borderColor;
     }
-
-    // Border width for table (HTML attribute and CSS)
     if (typeof options.borderWidth === 'number' && options.borderWidth >= 0) {
       $table.attr('border', options.borderWidth.toString());
-      $table.attr('style', `${$table.attr('style') || ''}border-width: ${options.borderWidth}px;`);
+      tableStyles['border-width'] = `${options.borderWidth}px`;
     }
-
-    // Border radius for table (CSS)
     if (options.borderRadius) {
-      $table.attr('style', `${$table.attr('style') || ''}border-radius: ${options.borderRadius};`);
+      tableStyles['border-radius'] = options.borderRadius;
     }
-
-    // Border collapse for table (CSS)
     if (options.borderCollapse) {
-      $table.attr('style', `${$table.attr('style') || ''}border-collapse: ${options.borderCollapse};`);
+      tableStyles['border-collapse'] = options.borderCollapse;
     }
-
-    // Table text align (CSS)
     if (options.tableTextAlign) {
-      $table.attr('style', `${$table.attr('style') || ''}text-align: ${options.tableTextAlign};`);
+      tableStyles['text-align'] = options.tableTextAlign;
+    }
+    if (Object.keys(tableStyles).length) {
+      $table.css(tableStyles);
     }
 
     // Row style and row text align
@@ -61,8 +55,12 @@ export function applyTableStyles(htmlInput: string, options: ConversionOptions):
       if (options.rowStyle) {
         $row.attr('style', options.rowStyle);
       }
+      const rowStyles: Record<string, string> = {};
       if (options.rowTextAlign) {
-        $row.attr('style', `${$row.attr('style') || ''}text-align: ${options.rowTextAlign};`);
+        rowStyles['text-align'] = options.rowTextAlign;
+      }
+      if (Object.keys(rowStyles).length) {
+        $row.css(rowStyles);
       }
     });
 
@@ -72,8 +70,12 @@ export function applyTableStyles(htmlInput: string, options: ConversionOptions):
       if (options.cellStyle) {
         $cell.attr('style', options.cellStyle);
       }
+      const cellStyles: Record<string, string> = {};
       if (options.cellTextAlign) {
-        $cell.attr('style', `${$cell.attr('style') || ''}text-align: ${options.cellTextAlign};`);
+        cellStyles['text-align'] = options.cellTextAlign;
+      }
+      if (Object.keys(cellStyles).length) {
+        $cell.css(cellStyles);
       }
     });
 
@@ -95,10 +97,14 @@ export function applyTableStyles(htmlInput: string, options: ConversionOptions):
       if (options.captionStyle) {
         $caption.attr('style', options.captionStyle);
       }
+      const captionStyles: Record<string, string> = {};
       if (options.captionPosition === 'bottom') {
-        $caption.attr('style', `${$caption.attr('style') || ''}caption-side: bottom;`);
+        captionStyles['caption-side'] = 'bottom';
       } else if (options.captionPosition === 'top') {
-        $caption.attr('style', `${$caption.attr('style') || ''}caption-side: top;`);
+        captionStyles['caption-side'] = 'top';
+      }
+      if (Object.keys(captionStyles).length) {
+        $caption.css(captionStyles);
       }
     }
   });
