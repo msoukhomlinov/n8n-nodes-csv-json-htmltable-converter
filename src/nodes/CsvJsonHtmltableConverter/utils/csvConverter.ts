@@ -1,14 +1,22 @@
 import Papa from 'papaparse';
 import minifyHtml from '@minify-html/node';
 import type { ConversionOptions } from '../types';
-import { DEFAULT_CSV_DELIMITER, DEFAULT_INCLUDE_HEADERS, DEFAULT_PRETTY_PRINT } from './constants';
+import {
+  DEFAULT_CSV_DELIMITER,
+  DEFAULT_INCLUDE_HEADERS,
+  DEFAULT_PRETTY_PRINT,
+  MINIFY_OPTIONS,
+} from './constants';
 
 /**
  * Parses CSV data into a structured format
  */
 function parseCSV(csv: string, options: ConversionOptions) {
   const delimiter = options.csvDelimiter || DEFAULT_CSV_DELIMITER;
-  const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
+  const includeHeaders =
+    options.includeTableHeaders !== undefined
+      ? options.includeTableHeaders
+      : DEFAULT_INCLUDE_HEADERS;
 
   const result = Papa.parse(csv, {
     delimiter,
@@ -28,7 +36,8 @@ function parseCSV(csv: string, options: ConversionOptions) {
  */
 export async function csvToJson(csv: string, options: ConversionOptions): Promise<string> {
   const result = parseCSV(csv, options);
-  const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
+  const prettyPrint =
+    options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
 
   // If we have headers, result.data will already be an array of objects
   // If not, result.data will be an array of arrays
@@ -39,9 +48,13 @@ export async function csvToJson(csv: string, options: ConversionOptions): Promis
  * Converts CSV to HTML table
  */
 export async function csvToHtml(csv: string, options: ConversionOptions): Promise<string> {
-  const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
+  const includeHeaders =
+    options.includeTableHeaders !== undefined
+      ? options.includeTableHeaders
+      : DEFAULT_INCLUDE_HEADERS;
   const result = parseCSV(csv, { ...options, includeTableHeaders: false }); // We'll handle headers manually
-  const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
+  const prettyPrint =
+    options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
 
   let html = '<table>';
   const indentation = prettyPrint ? '\n  ' : '';
@@ -81,12 +94,7 @@ export async function csvToHtml(csv: string, options: ConversionOptions): Promis
 
   // Apply minification if pretty print is disabled
   if (!prettyPrint) {
-    html = minifyHtml.minify(Buffer.from(html), {
-      minify_whitespace: true,
-      keepComments: false,
-      keepSpacesBetweenAttributes: false,
-      keepHtmlAndHeadOpeningTags: false
-    } as unknown as object).toString();
+    html = minifyHtml.minify(Buffer.from(html), MINIFY_OPTIONS).toString();
   }
 
   return html;

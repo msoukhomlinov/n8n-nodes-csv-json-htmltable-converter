@@ -43,3 +43,10 @@ export const DEFAULT_CSV_DELIMITER = ',';
 export const DEFAULT_INCLUDE_HEADERS = true;
 export const DEFAULT_PRETTY_PRINT = false;
 export const DEFAULT_MULTIPLE_ITEMS = false;
+
+export const MINIFY_OPTIONS = {
+  minify_whitespace: true,
+  keepComments: false,
+  keepSpacesBetweenAttributes: false,
+  keepHtmlAndHeadOpeningTags: false,
+} as unknown as object;
