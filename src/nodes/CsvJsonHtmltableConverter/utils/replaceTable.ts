@@ -4,6 +4,13 @@ import minifyHtml from '@minify-html/node';
 import { DEFAULT_PRETTY_PRINT, MINIFY_OPTIONS } from './constants';
 import { debug, debugSample } from './debug';
 
+const MINIFY_OPTIONS = {
+  minify_whitespace: true,
+  keepComments: false,
+  keepSpacesBetweenAttributes: false,
+  keepHtmlAndHeadOpeningTags: false
+} as unknown as object;
+
 /**
  * Maps preset options to corresponding selectors
  * This is reused from htmlConverter.ts

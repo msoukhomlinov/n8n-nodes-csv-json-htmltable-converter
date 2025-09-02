@@ -1,6 +1,34 @@
 import * as cheerio from 'cheerio';
 import type { ConversionOptions } from '../types';
 
+function parseStyleString(style?: string): Record<string, string> {
+  const styles: Record<string, string> = {};
+  if (!style) return styles;
+  style
+    .split(';')
+    .map((decl) => decl.trim())
+    .filter(Boolean)
+    .forEach((decl) => {
+      const colonIndex = decl.indexOf(':');
+      if (colonIndex !== -1) {
+        const property = decl.slice(0, colonIndex).trim();
+        const value = decl.slice(colonIndex + 1).trim();
+        if (property && value) {
+          styles[property] = value;
+        }
+      }
+    });
+  return styles;
+}
+
+function mergeStyles($el: cheerio.Cheerio, style?: string): void {
+  if (!style) return;
+  const parsed = parseStyleString(style);
+  if (Object.keys(parsed).length > 0) {
+    $el.css(parsed);
+  }
+}
+
 /**
  * Applies custom styles to all tables in the provided HTML string according to the options.
  * @param htmlInput The HTML string containing one or more tables
@@ -20,60 +48,64 @@ export function applyTableStyles(htmlInput: string, options: ConversionOptions):
     if (options.tableClass) {
       $table.addClass(options.tableClass);
     }
-    if (options.tableStyle) {
-      $table.attr('style', options.tableStyle);
-    }
+    mergeStyles($table, options.tableStyle);
 
-    // Border style for table (CSS)
+    const tableStyles: Record<string, string> = {};
+
+    const tableStyles: Record<string, string> = {};
+
     if (options.borderStyle) {
-      $table.attr('style', `${$table.attr('style') || ''}border-style: ${options.borderStyle};`);
+      tableStyles['border-style'] = options.borderStyle;
     }
-
-    // Border colour for table (CSS)
     if (options.borderColor) {
-      $table.attr('style', `${$table.attr('style') || ''}border-color: ${options.borderColor};`);
+      tableStyles['border-color'] = options.borderColor;
     }
-
-    // Border width for table (HTML attribute and CSS)
     if (typeof options.borderWidth === 'number' && options.borderWidth >= 0) {
       $table.attr('border', options.borderWidth.toString());
-      $table.attr('style', `${$table.attr('style') || ''}border-width: ${options.borderWidth}px;`);
+      tableStyles['border-width'] = `${options.borderWidth}px`;
     }
-
-    // Border radius for table (CSS)
     if (options.borderRadius) {
-      $table.attr('style', `${$table.attr('style') || ''}border-radius: ${options.borderRadius};`);
+      tableStyles['border-radius'] = options.borderRadius;
     }
-
-    // Border collapse for table (CSS)
     if (options.borderCollapse) {
-      $table.attr('style', `${$table.attr('style') || ''}border-collapse: ${options.borderCollapse};`);
+      tableStyles['border-collapse'] = options.borderCollapse;
+    }
+    if (options.tableTextAlign) {
+      tableStyles['text-align'] = options.tableTextAlign;
     }
 
-    // Table text align (CSS)
-    if (options.tableTextAlign) {
-      $table.attr('style', `${$table.attr('style') || ''}text-align: ${options.tableTextAlign};`);
+  
+    if (Object.keys(tableStyles).length) {
+      $table.css(tableStyles);
     }
 
     // Row style and row text align
     $table.find('tr').each((i, row) => {
       const $row = $(row);
-      if (options.rowStyle) {
-        $row.attr('style', options.rowStyle);
-      }
+
+      mergeStyles($row, options.rowStyle);
+
+      const rowStyles: Record<string, string> = {};
       if (options.rowTextAlign) {
-        $row.attr('style', `${$row.attr('style') || ''}text-align: ${options.rowTextAlign};`);
+        rowStyles['text-align'] = options.rowTextAlign;
+      }
+      if (Object.keys(rowStyles).length) {
+        $row.css(rowStyles);
       }
     });
 
     // Cell style and cell text align for <td> and <th>
     $table.find('td, th').each((_, cell) => {
       const $cell = $(cell);
-      if (options.cellStyle) {
-        $cell.attr('style', options.cellStyle);
-      }
+
+      mergeStyles($cell, options.cellStyle);
+
+      const cellStyles: Record<string, string> = {};
       if (options.cellTextAlign) {
-        $cell.attr('style', `${$cell.attr('style') || ''}text-align: ${options.cellTextAlign};`);
+        cellStyles['text-align'] = options.cellTextAlign;
+      }
+      if (Object.keys(cellStyles).length) {
+        $cell.css(cellStyles);
       }
     });
 
@@ -92,13 +124,17 @@ export function applyTableStyles(htmlInput: string, options: ConversionOptions):
     // Caption style and position
     const $caption = $table.find('caption').first();
     if ($caption.length > 0) {
-      if (options.captionStyle) {
-        $caption.attr('style', options.captionStyle);
-      }
+
+      mergeStyles($caption, options.captionStyle);
+
+      const captionStyles: Record<string, string> = {};
       if (options.captionPosition === 'bottom') {
-        $caption.attr('style', `${$caption.attr('style') || ''}caption-side: bottom;`);
+        captionStyles['caption-side'] = 'bottom';
       } else if (options.captionPosition === 'top') {
-        $caption.attr('style', `${$caption.attr('style') || ''}caption-side: top;`);
+        captionStyles['caption-side'] = 'top';
+      }
+      if (Object.keys(captionStyles).length) {
+        $caption.css(captionStyles);
       }
     }
   });
