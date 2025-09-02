@@ -1,8 +1,14 @@
 import Papa from 'papaparse';
 import minifyHtml from '@minify-html/node';
 import type { ConversionOptions, FormatType } from '../types';
-import { DEFAULT_CSV_DELIMITER, DEFAULT_INCLUDE_HEADERS, DEFAULT_PRETTY_PRINT } from './constants';
+import {
+  DEFAULT_CSV_DELIMITER,
+  DEFAULT_INCLUDE_HEADERS,
+  DEFAULT_PRETTY_PRINT,
+  MINIFY_OPTIONS,
+} from './constants';
 import { ValidationError } from './errors';
+import { escapeHtml } from './escapeHtml';
 
 /**
  * Parses CSV data into a structured format
