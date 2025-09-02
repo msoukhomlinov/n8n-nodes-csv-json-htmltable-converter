@@ -687,12 +687,7 @@ export async function htmlToHtml(html: string, options: ConversionOptions): Prom
 
   // Apply minification if pretty print is disabled
   if (!prettyPrint) {
-    output = minifyHtml.minify(Buffer.from(output), {
-      minify_whitespace: true,
-      keepComments: false,
-      keepSpacesBetweenAttributes: false,
-      keepHtmlAndHeadOpeningTags: false
-    } as unknown as object).toString();
+    output = minifyHtml.minify(Buffer.from(output), MINIFY_OPTIONS).toString();
   }
 
   return output;
