@@ -40,46 +40,35 @@ export async function csvToJson(csv: string, options: ConversionOptions): Promis
  */
 export async function csvToHtml(csv: string, options: ConversionOptions): Promise<string> {
   const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
-  const result = parseCSV(csv, { ...options, includeTableHeaders: false }); // We'll handle headers manually
+  const result = parseCSV(csv, { ...options, includeTableHeaders: false });
   const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
 
-  let html = '<table>';
   const indentation = prettyPrint ? '\n  ' : '';
   let dataRows = result.data as string[][];
+  const parts: string[] = ['<table>'];
 
-  // If we're using headers and there's at least one row
   if (includeHeaders && dataRows.length > 0) {
     const headers = dataRows[0];
-    html += `${indentation}<thead>`;
-    html += `${indentation}  <tr>`;
-
+    parts.push(`${indentation}<thead>`, `${indentation}  <tr>`);
     for (const header of headers) {
-      html += `${indentation}    <th>${escapeHtml(header)}</th>`;
+      parts.push(`${indentation}    <th>${escapeHtml(header)}</th>`);
     }
-
-    html += `${indentation}  </tr>`;
-    html += `${indentation}</thead>`;
-
-    // Remove the header row from data
+    parts.push(`${indentation}  </tr>`, `${indentation}</thead>`);
     dataRows = dataRows.slice(1);
   }
 
-  html += `${indentation}<tbody>`;
-
+  parts.push(`${indentation}<tbody>`);
   for (const row of dataRows) {
-    html += `${indentation}  <tr>`;
-
+    parts.push(`${indentation}  <tr>`);
     for (const cell of row) {
-      html += `${indentation}    <td>${escapeHtml(cell)}</td>`;
+      parts.push(`${indentation}    <td>${escapeHtml(cell)}</td>`);
     }
-
-    html += `${indentation}  </tr>`;
+    parts.push(`${indentation}  </tr>`);
   }
+  parts.push(`${indentation}</tbody>`, prettyPrint ? '\n</table>' : '</table>');
 
-  html += `${indentation}</tbody>`;
-  html += prettyPrint ? '\n</table>' : '</table>';
+  let html = parts.join('');
 
-  // Apply minification if pretty print is disabled
   if (!prettyPrint) {
     html = minifyHtml.minify(Buffer.from(html), {
       minify_whitespace: true,

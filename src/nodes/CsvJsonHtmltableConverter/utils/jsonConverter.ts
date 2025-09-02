@@ -86,8 +86,8 @@ export async function jsonToHtml(
   // Parse the input if it's a string, otherwise use as is
   const parsedData = typeof jsonData === 'string' ? parseJSON(jsonData) : jsonData;
 
-  let html = '<table>';
   const indentation = prettyPrint ? '\n  ' : '';
+  const parts: string[] = ['<table>'];
 
   try {
     // Array of objects - most common case
@@ -95,77 +95,57 @@ export async function jsonToHtml(
       const headers = Object.keys(parsedData[0]);
 
       if (includeHeaders) {
-        html += `${indentation}<thead>`;
-        html += `${indentation}  <tr>`;
-
+        parts.push(`${indentation}<thead>`, `${indentation}  <tr>`);
         for (const header of headers) {
-          html += `${indentation}    <th>${escapeHtml(header)}</th>`;
+          parts.push(`${indentation}    <th>${escapeHtml(header)}</th>`);
         }
-
-        html += `${indentation}  </tr>`;
-        html += `${indentation}</thead>`;
+        parts.push(`${indentation}  </tr>`, `${indentation}</thead>`);
       }
 
-      html += `${indentation}<tbody>`;
+      parts.push(`${indentation}<tbody>`);
 
       for (const row of parsedData) {
-        html += `${indentation}  <tr>`;
-
+        parts.push(`${indentation}  <tr>`);
         for (const header of headers) {
           const cellValue = row[header] !== undefined ? row[header] : '';
-          html += `${indentation}    <td>${escapeHtml(String(cellValue))}</td>`;
+          parts.push(`${indentation}    <td>${escapeHtml(String(cellValue))}</td>`);
         }
-
-        html += `${indentation}  </tr>`;
+        parts.push(`${indentation}  </tr>`);
       }
 
-      html += `${indentation}</tbody>`;
+      parts.push(`${indentation}</tbody>`);
     }
     // Array of arrays
     else if (Array.isArray(parsedData) && parsedData.length > 0 && Array.isArray(parsedData[0])) {
-      html += `${indentation}<tbody>`;
-
+      parts.push(`${indentation}<tbody>`);
       for (const row of parsedData) {
-        html += `${indentation}  <tr>`;
-
+        parts.push(`${indentation}  <tr>`);
         for (const cell of row) {
-          html += `${indentation}    <td>${escapeHtml(String(cell))}</td>`;
+          parts.push(`${indentation}    <td>${escapeHtml(String(cell))}</td>`);
         }
-
-        html += `${indentation}  </tr>`;
+        parts.push(`${indentation}  </tr>`);
       }
-
-      html += `${indentation}</tbody>`;
+      parts.push(`${indentation}</tbody>`);
     }
     // Simple object
     else if (typeof parsedData === 'object' && !Array.isArray(parsedData)) {
       if (includeHeaders) {
-        html += `${indentation}<thead>`;
-        html += `${indentation}  <tr>`;
-        html += `${indentation}    <th>Key</th>`;
-        html += `${indentation}    <th>Value</th>`;
-        html += `${indentation}  </tr>`;
-        html += `${indentation}</thead>`;
+        parts.push(`${indentation}<thead>`, `${indentation}  <tr>`, `${indentation}    <th>Key</th>`, `${indentation}    <th>Value</th>`, `${indentation}  </tr>`, `${indentation}</thead>`);
       }
 
-      html += `${indentation}<tbody>`;
-
+      parts.push(`${indentation}<tbody>`);
       for (const [key, value] of Object.entries(parsedData)) {
-        html += `${indentation}  <tr>`;
-        html += `${indentation}    <td>${escapeHtml(key)}</td>`;
-        html += `${indentation}    <td>${escapeHtml(String(value))}</td>`;
-        html += `${indentation}  </tr>`;
+        parts.push(`${indentation}  <tr>`, `${indentation}    <td>${escapeHtml(key)}</td>`, `${indentation}    <td>${escapeHtml(String(value))}</td>`, `${indentation}  </tr>`);
       }
-
-      html += `${indentation}</tbody>`;
+      parts.push(`${indentation}</tbody>`);
     }
     else {
       throw new Error('Unsupported JSON structure for HTML conversion');
     }
 
-    html += prettyPrint ? '\n</table>' : '</table>';
+    parts.push(prettyPrint ? '\n</table>' : '</table>');
 
-    // Apply minification if pretty print is disabled
+    let html = parts.join('');
     if (!prettyPrint) {
       html = minifyHtml.minify(Buffer.from(html), {
         minify_whitespace: true,
