@@ -451,20 +451,16 @@ export class CsvJsonHtmltableConverter implements INodeType {
 
         // For n8n Object, return the object directly
         if (targetFormat === 'n8nObject') {
-          if (sourceFormat === 'html' && Array.isArray(result) && result.length > 1) {
-            // For HTML tables with multiple rows, we need to return each row as a separate item
-            // without wrapping them in a 'data' property
+          if (Array.isArray(result)) {
+            // Spread array results so each entry becomes its own item
             for (const row of result) {
               returnData.push({
                 json: row as IDataObject,
               });
             }
           } else {
-            // For other cases, maintain existing behavior
-            // If result is an array with a single item, return just that item
-            const unwrappedResult = Array.isArray(result) && result.length === 1 ? result[0] : result;
             returnData.push({
-              json: unwrappedResult as IDataObject,
+              json: result as IDataObject,
             });
           }
         } else {
