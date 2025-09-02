@@ -1,16 +1,20 @@
 import { json2csv } from 'json-2-csv';
-import type { ConversionOptions } from '../types';
+import type { ConversionOptions, FormatType } from '../types';
 import { DEFAULT_CSV_DELIMITER, DEFAULT_INCLUDE_HEADERS, DEFAULT_PRETTY_PRINT } from './constants';
 import minifyHtml from '@minify-html/node';
+import { ConversionError, ValidationError } from './errors';
 
 /**
  * Parses JSON data into a structured format
  */
-function parseJSON(jsonStr: string) {
+function parseJSON(jsonStr: string, target: FormatType) {
   try {
     return JSON.parse(jsonStr);
   } catch (error) {
-    throw new Error(`JSON parsing error: ${error.message}`);
+    throw new ValidationError(`JSON parsing error: ${error.message}`, {
+      source: 'json',
+      target,
+    });
   }
 }
 
@@ -20,7 +24,7 @@ function parseJSON(jsonStr: string) {
 export async function jsonToCsv(jsonStr: string, options: ConversionOptions): Promise<string> {
   const delimiter = options.csvDelimiter || DEFAULT_CSV_DELIMITER;
   const includeHeaders = options.includeTableHeaders !== undefined ? options.includeTableHeaders : DEFAULT_INCLUDE_HEADERS;
-  const jsonData = parseJSON(jsonStr);
+  const jsonData = parseJSON(jsonStr, 'csv');
 
   // Handle different JSON structures (array of objects, array of arrays, etc.)
   try {
@@ -67,9 +71,18 @@ export async function jsonToCsv(jsonStr: string, options: ConversionOptions): Pr
       return rows.join('\n');
     }
 
-    throw new Error('Unsupported JSON structure for CSV conversion');
+    throw new ConversionError('Unsupported JSON structure for CSV conversion', {
+      source: 'json',
+      target: 'csv',
+    });
   } catch (error) {
-    throw new Error(`JSON to CSV conversion error: ${error.message}`);
+    if (error instanceof ConversionError || error instanceof ValidationError) {
+      throw error;
+    }
+    throw new ConversionError(`JSON to CSV conversion error: ${error.message}`, {
+      source: 'json',
+      target: 'csv',
+    });
   }
 }
 
@@ -84,7 +97,7 @@ export async function jsonToHtml(
   const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
 
   // Parse the input if it's a string, otherwise use as is
-  const parsedData = typeof jsonData === 'string' ? parseJSON(jsonData) : jsonData;
+  const parsedData = typeof jsonData === 'string' ? parseJSON(jsonData, 'html') : jsonData;
 
   let html = '<table>';
   const indentation = prettyPrint ? '\n  ' : '';
@@ -138,7 +151,7 @@ export async function jsonToHtml(
       html += `${indentation}</tbody>`;
     }
     // Simple object
-    else if (typeof parsedData === 'object' && !Array.isArray(parsedData)) {
+      else if (typeof parsedData === 'object' && !Array.isArray(parsedData)) {
       if (includeHeaders) {
         html += `${indentation}<thead>`;
         html += `${indentation}  <tr>`;
@@ -159,26 +172,35 @@ export async function jsonToHtml(
 
       html += `${indentation}</tbody>`;
     }
-    else {
-      throw new Error('Unsupported JSON structure for HTML conversion');
+      else {
+        throw new ConversionError('Unsupported JSON structure for HTML conversion', {
+          source: 'json',
+          target: 'html',
+        });
+      }
+
+      html += prettyPrint ? '\n</table>' : '</table>';
+
+      // Apply minification if pretty print is disabled
+      if (!prettyPrint) {
+        html = minifyHtml.minify(Buffer.from(html), {
+          minify_whitespace: true,
+          keepComments: false,
+          keepSpacesBetweenAttributes: false,
+          keepHtmlAndHeadOpeningTags: false
+        } as unknown as object).toString();
+      }
+
+      return html;
+    } catch (error) {
+      if (error instanceof ConversionError || error instanceof ValidationError) {
+        throw error;
+      }
+      throw new ConversionError(`JSON to HTML conversion error: ${error.message}`, {
+        source: 'json',
+        target: 'html',
+      });
     }
-
-    html += prettyPrint ? '\n</table>' : '</table>';
-
-    // Apply minification if pretty print is disabled
-    if (!prettyPrint) {
-      html = minifyHtml.minify(Buffer.from(html), {
-        minify_whitespace: true,
-        keepComments: false,
-        keepSpacesBetweenAttributes: false,
-        keepHtmlAndHeadOpeningTags: false
-      } as unknown as object).toString();
-    }
-
-    return html;
-  } catch (error) {
-    throw new Error(`JSON to HTML conversion error: ${error.message}`);
-  }
 }
 
 /**

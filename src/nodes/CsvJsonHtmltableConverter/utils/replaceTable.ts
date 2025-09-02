@@ -3,6 +3,7 @@ import type { ConversionOptions, TablePreset } from '../types';
 import minifyHtml from '@minify-html/node';
 import { DEFAULT_PRETTY_PRINT } from './constants';
 import { debug, debugSample } from './debug';
+import { ConversionError, ValidationError } from './errors';
 
 /**
  * Maps preset options to corresponding selectors
@@ -117,7 +118,10 @@ function findTable($: cheerio.Root, options: ConversionOptions): cheerio.Element
       const tableIndex = config.tableIndex;
       // Validate headingLevel
       if (typeof headingLevel !== 'number' || headingLevel < 1 || headingLevel > 999) {
-        throw new Error('Heading Level must be a number between 1 and 999.');
+        throw new ValidationError('Heading Level must be a number between 1 and 999.', {
+          source: 'html',
+          target: 'html',
+        });
       }
       // Find all headings with the specified text
       let foundTable = null;
@@ -137,7 +141,10 @@ function findTable($: cheerio.Root, options: ConversionOptions): cheerio.Element
         return foundTable;
       }
       // No tables found after matching headings
-      throw new Error(`No tables found after heading level h${headingLevel} containing "${headingText || 'any text'}" at index ${tableIndex}. Please check your HTML structure or try another preset.`);
+      throw new ValidationError(
+        `No tables found after heading level h${headingLevel} containing "${headingText || 'any text'}" at index ${tableIndex}. Please check your HTML structure or try another preset.`,
+        { source: 'html', target: 'html' }
+      );
     }
 
     // Special handling for table-with-caption preset
@@ -165,8 +172,9 @@ function findTable($: cheerio.Root, options: ConversionOptions): cheerio.Element
       });
 
       if (!foundTable) {
-        throw new Error(
-          `No tables found with <caption> containing "${captionText || 'any text'}". Please check your HTML or try another preset.`
+        throw new ValidationError(
+          `No tables found with <caption> containing "${captionText || 'any text'}". Please check your HTML or try another preset.`,
+          { source: 'html', target: 'html' }
         );
       }
       return foundTable;
@@ -176,7 +184,10 @@ function findTable($: cheerio.Root, options: ConversionOptions): cheerio.Element
     const elements = elementSelector ? $(elementSelector) : $.root();
 
     if (elements.length === 0) {
-      throw new Error(`No elements found matching the selector: "${elementSelector}". Try using a more general selector like "html" or "body".`);
+      throw new ValidationError(
+        `No elements found matching the selector: "${elementSelector}". Try using a more general selector like "html" or "body".`,
+        { source: 'html', target: 'html' }
+      );
     }
 
     // Find tables within those elements
@@ -202,7 +213,10 @@ function findTable($: cheerio.Root, options: ConversionOptions): cheerio.Element
         : '\nHere are some suggestions:\n- Check if your HTML actually contains <table> elements\n- Try using a more general selector like "table" or "div table"\n- Switch to Simple mode and try the different presets\n- Use browser developer tools to identify the correct selectors';
 
       const elementSelectorMsg = elementSelector ? ` matching: "${elementSelector}"` : '';
-      throw new Error(`No tables found matching the selector: "${tableSelector}" within elements${elementSelectorMsg}.${helpfulMessage}`);
+      throw new ValidationError(
+        `No tables found matching the selector: "${tableSelector}" within elements${elementSelectorMsg}.${helpfulMessage}`,
+        { source: 'html', target: 'html' }
+      );
     }
 
     return foundTable;
@@ -217,12 +231,21 @@ function findTable($: cheerio.Root, options: ConversionOptions): cheerio.Element
         + '\nTry switching to Simple mode and using a preset, or see Cheerio documentation for supported selectors.';
 
       if (elementSelector && error.message.includes(elementSelector)) {
-        throw new Error(`Invalid element selector syntax: "${elementSelector}".${helpfulMessage}`);
+        throw new ValidationError(`Invalid element selector syntax: "${elementSelector}".${helpfulMessage}`, {
+          source: 'html',
+          target: 'html',
+        });
       }
       if (tableSelector && error.message.includes(tableSelector)) {
-        throw new Error(`Invalid table selector syntax: "${tableSelector}".${helpfulMessage}`);
+        throw new ValidationError(`Invalid table selector syntax: "${tableSelector}".${helpfulMessage}`, {
+          source: 'html',
+          target: 'html',
+        });
       }
-      throw new Error(`Invalid selector syntax. Please check your selectors.${helpfulMessage}`);
+      throw new ValidationError(`Invalid selector syntax. Please check your selectors.${helpfulMessage}`, {
+        source: 'html',
+        target: 'html',
+      });
     }
     throw error;
   }
@@ -251,7 +274,10 @@ export async function replaceTable(
     debug('replaceTable.ts', `Table to replace found: ${!!tableToReplace}`);
 
     if (!tableToReplace) {
-      throw new Error('No table found to replace. Please check your selectors.');
+      throw new ValidationError('No table found to replace. Please check your selectors.', {
+        source: 'html',
+        target: 'html',
+      });
     }
 
     // Replace the table with the new content
@@ -290,6 +316,12 @@ export async function replaceTable(
     return result;
   } catch (error) {
     debug('replaceTable.ts', `Error in replaceTable: ${error.message}`, error);
-    throw new Error(`Table replacement error: ${error.message}`);
+    if (error instanceof ConversionError || error instanceof ValidationError) {
+      throw error;
+    }
+    throw new ConversionError(`Table replacement error: ${error.message}`, {
+      source: 'html',
+      target: 'html',
+    });
   }
 }
