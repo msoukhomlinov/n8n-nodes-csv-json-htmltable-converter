@@ -46,7 +46,7 @@ export const DEFAULT_MULTIPLE_ITEMS = false;
 
 export const MINIFY_OPTIONS = {
   minify_whitespace: true,
-  keepComments: false,
-  keepSpacesBetweenAttributes: false,
-  keepHtmlAndHeadOpeningTags: false,
+  keep_comments: false,
+  keep_spaces_between_attributes: false,
+  keep_html_and_head_opening_tags: false,
 } as unknown as object;
