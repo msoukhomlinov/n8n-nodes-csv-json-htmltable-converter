@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-csv-json-htmltable-converter",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "A comprehensive n8n node for seamless bidirectional conversion, replacement, and styling of HTML tables, CSV, and JSON formats. Features advanced table selection (including Table With Caption, Table Under Heading, Last Table), Style and Replace operations, n8nObject output for direct workflow integration, robust validation, customisable formatting, and improved chaining for ETL, web scraping, and data transformation workflows.",
   "keywords": [
     "n8n",
@@ -49,22 +49,23 @@
   },
   "devDependencies": {
     "@types/cheerio": "^0.22.35",
+    "@types/jest": "^29.5.12",
     "@types/node": "^18.15.11",
     "@types/papaparse": "^5.3.7",
     "eslint": "^9.0.0",
     "gulp": "^4.0.2",
+    "jest": "^29.7.0",
     "n8n-workflow": "~1.70.0",
     "prettier": "^2.8.7",
-    "typescript": "~5.0.4",
-    "@types/jest": "^29.5.12",
-    "jest": "^29.7.0",
     "ts-jest": "^29.1.1",
+    "typescript": "~5.0.4",
     "typescript-eslint": "^8.41.0"
   },
   "dependencies": {
     "@minify-html/node": "^0.16.4",
-    "cheerio": "^1.0.0",
+    "cheerio": "^1.1.2",
     "json-2-csv": "^5.5.9",
-    "papaparse": "^5.4.1"
+    "papaparse": "^5.4.1",
+    "undici": "^7.11.0"
   }
 }
