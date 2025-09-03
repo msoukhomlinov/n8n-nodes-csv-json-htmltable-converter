@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import type { ConversionOptions } from '../types';
+import { sanitizeHtml, validateHtmlInput } from './htmlSanitizer';
 
 function parseStyleString(style?: string): Record<string, string> {
   const styles: Record<string, string> = {};
@@ -36,10 +37,14 @@ function mergeStyles($el: cheerio.Cheerio, style?: string): void {
  * @returns The styled HTML string
  */
 export function applyTableStyles(htmlInput: string, options: ConversionOptions): string {
+  // Validate and sanitize HTML input for security
+  validateHtmlInput(htmlInput);
+  const sanitizedHtml = sanitizeHtml(htmlInput);
+
   // Load as fragment to avoid <html> wrapping
   // TypeScript types for Cheerio do not support the third argument (isDocument),
   // so we use xmlMode: true as a workaround to avoid <html> wrapping for fragments.
-  const $ = cheerio.load(htmlInput, { xmlMode: true });
+  const $ = cheerio.load(sanitizedHtml, { xmlMode: true });
 
   $('table').each((_, table) => {
     const $table = $(table);
@@ -72,7 +77,7 @@ export function applyTableStyles(htmlInput: string, options: ConversionOptions):
       tableStyles['text-align'] = options.tableTextAlign;
     }
 
-  
+
     if (Object.keys(tableStyles).length) {
       $table.css(tableStyles);
     }

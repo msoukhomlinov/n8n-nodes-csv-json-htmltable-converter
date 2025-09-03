@@ -1,10 +1,14 @@
 import * as cheerio from 'cheerio';
 import type { ConversionOptions } from '../types';
-import minifyHtml from '@minify-html/node';
+import * as minifyHtml from '@minify-html/node';
 import { DEFAULT_PRETTY_PRINT, MINIFY_OPTIONS } from './constants';
 import { debug, debugSample } from './debug';
 import { ConversionError, ValidationError } from './errors';
-import { getPresetSelectors, findTablesAfterElement } from './tableSelectors';
+import { getPresetSelectorsLegacy } from './tableSelectors';
+import type { TableUnderHeadingConfig, TableWithCaptionConfig } from '../types';
+import { sanitizeHtml, validateHtmlInput } from './htmlSanitizer';
+import { OptimizedTableFinder, DOMPerformanceMonitor } from './domOptimizer';
+
 
 /**
  * Finds a table in the HTML document based on selectors and options
@@ -18,30 +22,30 @@ function findTable($: cheerio.Root, options: ConversionOptions): cheerio.Element
   if (options.selectorMode === 'simple') {
     // Use preset selectors for simple mode
     const preset = options.tablePreset || 'all-tables';
-    const presetSelectors = getPresetSelectors(preset, options);
+    const presetSelectors = getPresetSelectorsLegacy(preset, options);
 
-    elementSelector = presetSelectors.elementSelector;
+    elementSelector = presetSelectors.elementSelector || 'html';
 
     // If custom preset, use the provided tableSelector
     if (preset === 'custom') {
       tableSelector = options.tableSelector?.trim() || 'table';
     } else {
-      tableSelector = presetSelectors.tableSelector;
+      tableSelector = presetSelectors.tableSelector || 'table';
     }
   } else {
     // Use advanced mode with separate selectors
-    elementSelector = options.elementSelector?.trim() || '';
+    elementSelector = options.elementSelector?.trim() || 'html';
     tableSelector = options.tableSelector?.trim() || 'table';
   }
 
   try {
     // Special handling for table-under-heading preset
-    if (elementSelector === 'special:table-under-heading') {
-      const config = JSON.parse(tableSelector);
+      if (elementSelector === 'special:table-under-heading') {
+    const config: TableUnderHeadingConfig = JSON.parse(tableSelector);
       const headingLevel = config.headingLevel;
-      const headingSelector = config.headingSelector || `h${headingLevel}`;
       const headingText = config.headingText;
       const tableIndex = config.tableIndex;
+
       // Validate headingLevel
       if (typeof headingLevel !== 'number' || headingLevel < 1 || headingLevel > 999) {
         throw new ValidationError('Heading Level must be a number between 1 and 999.', {
@@ -49,26 +53,18 @@ function findTable($: cheerio.Root, options: ConversionOptions): cheerio.Element
           target: 'html',
         });
       }
-      // Find all headings with the specified text
-      let foundTable = null;
-      $(headingSelector).each((_, heading) => {
-        const headingContent = $(heading).text().trim();
-        if (
-          headingText === '' ||
-          headingContent.toLowerCase().includes(headingText.toLowerCase())
-        ) {
-          // Traverse DOM in document order after the heading to find tables
-          const tablesAfterHeading = findTablesAfterElement(heading);
-          if (tablesAfterHeading.length >= tableIndex) {
-            foundTable = tablesAfterHeading[tableIndex - 1];
-            return false; // Stop after finding the correct heading and table
-          }
-        }
-        return true;
-      });
+
+      // Use optimized table finder
+      const finder = new OptimizedTableFinder($.html());
+      const foundTable = DOMPerformanceMonitor.timeOperation(
+        `findTableUnderHeading`,
+        () => finder.findTableUnderHeading(headingLevel, headingText, tableIndex - 1)
+      );
+
       if (foundTable) {
         return foundTable;
       }
+
       // No tables found after matching headings
       throw new Error(
         `No tables found after heading level h${headingLevel} containing "${
@@ -78,28 +74,16 @@ function findTable($: cheerio.Root, options: ConversionOptions): cheerio.Element
     }
 
     // Special handling for table-with-caption preset
-    if (elementSelector === 'special:table-with-caption') {
-      const config = JSON.parse(tableSelector);
+      if (elementSelector === 'special:table-with-caption') {
+    const config: TableWithCaptionConfig = JSON.parse(tableSelector);
       const captionText = config.captionText;
-      let foundTable: cheerio.Element | null = null;
 
-      $('table').each((_, table) => {
-        const caption = $(table).find('caption').first();
-
-        if (caption.length > 0) {
-          const captionContent = caption.text().trim();
-
-          if (
-            captionText === '' ||
-            captionContent.toLowerCase().includes(captionText.toLowerCase())
-          ) {
-            foundTable = table;
-            return false; // Break out of .each()
-          }
-        }
-
-        return true; // Continue the .each() loop
-      });
+      // Use optimized table finder
+      const finder = new OptimizedTableFinder($.html());
+      const foundTable = DOMPerformanceMonitor.timeOperation(
+        `findTableWithCaption`,
+        () => finder.findTableWithCaption(captionText)
+      );
 
       if (!foundTable) {
         throw new Error(
@@ -193,7 +177,10 @@ export async function replaceTable(
   // Detect if input is a fragment (no <html> or <body> tags)
   const isFragment = !(/<html[\s>]/i.test(html) || /<body[\s>]/i.test(html));
 
-  const $ = cheerio.load(html);
+  // Validate and sanitize HTML input for security
+  validateHtmlInput(html);
+  const sanitizedHtml = sanitizeHtml(html);
+  const $ = cheerio.load(sanitizedHtml);
   const prettyPrint =
     options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
 

@@ -1,5 +1,5 @@
 import { json2csv } from 'json-2-csv';
-import minifyHtml from '@minify-html/node';
+import * as minifyHtml from '@minify-html/node';
 import type { ConversionOptions, FormatType } from '../types';
 import {
   DEFAULT_CSV_DELIMITER,
@@ -9,13 +9,14 @@ import {
 } from './constants';
 import { ConversionError, ValidationError } from './errors';
 import { escapeHtml } from './escapeHtml';
+import { safeJsonParse } from './safeJson';
 
 /**
  * Parses JSON data into a structured format
  */
 function parseJSON(jsonStr: string, target: FormatType) {
   try {
-    return JSON.parse(jsonStr);
+    return safeJsonParse(jsonStr);
   } catch (error) {
     throw new ValidationError(`JSON parsing error: ${error.message}`, {
       source: 'json',

@@ -2,6 +2,38 @@
 
 All notable changes to the n8n-nodes-csv-json-htmltable-converter package will be documented in this file.
 
+## [1.2.4] - 2025-09-03
+
+### Added
+- **Data Manipulation Options for Convert operations:**
+  - Sort by field name (case-insensitive) with ascending/descending order
+  - Filter and reorder columns using comma-separated field names
+  - Support for quoted field names with spaces (e.g., "full name", age, "email address")
+  - Works across all format combinations (HTML ↔ CSV ↔ JSON ↔ n8nObject)
+- Missing captionText parameter support for replace operations
+- Missing table preset enum values ('last-table', 'table-with-caption')
+- Comprehensive bounds checking for array access operations
+- Type-safe parameter interfaces replacing 'any' types
+
+### Fixed
+- Syntax error in convertData.ts (malformed try-catch block)
+- Parameter validation inconsistency for headingLevel (1-6 vs 1-999)
+- ESLint configuration warnings and module type issues
+- Standardized error handling patterns (ValidationError vs ValidationResult)
+- Failing DOM optimizer test with timing assertions
+- Fragile string detection patterns replaced with proper JSON parsing
+- CSV to n8nObject conversion now returns all items instead of just the first item
+- Unsafe array access patterns throughout codebase
+
+### Improved
+- Type safety with proper TypeScript interfaces throughout
+- Error handling consistency across all validation functions
+- Code reliability with comprehensive bounds checking
+- Test stability and reliability
+- UI/UX: Table Selection Mode and Table Preset parameters are now hidden when converting from n8nObject format, providing a cleaner interface
+- UI/UX: Pretty Print Output parameter now only shows when output format is HTML
+- UI/UX: Include Table Headers parameter now only shows when output format is HTML or CSV
+
 ## [1.2.3] - 2025-05-29
 
 ### Fixed

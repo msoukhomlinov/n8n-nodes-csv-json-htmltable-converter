@@ -536,6 +536,7 @@ export const nodeDescription: INodeTypeDescription = {
       displayOptions: {
         hide: {
           operation: ['style'],
+          sourceFormat: ['csv', 'n8nObject'],
         },
       },
     },
@@ -583,6 +584,7 @@ export const nodeDescription: INodeTypeDescription = {
         },
         hide: {
           selectorMode: ['advanced'],
+          sourceFormat: ['csv', 'n8nObject'],
         },
       },
     },
@@ -702,10 +704,8 @@ export const nodeDescription: INodeTypeDescription = {
       displayOptions: {
         show: {
           operation: ['convert'],
+          targetFormat: ['html', 'csv'],
         },
-        hide: {
-          targetFormat: ['n8nObject'],
-        }
       },
     },
     {
@@ -716,7 +716,7 @@ export const nodeDescription: INodeTypeDescription = {
       description: 'Whether to format the output with proper indentation and spacing',
       displayOptions: {
         show: {
-          targetFormat: ['csv', 'json', 'html'],
+          targetFormat: ['html'],
           operation: ['convert'],
         },
       },
@@ -749,6 +749,62 @@ export const nodeDescription: INodeTypeDescription = {
           sourceFormat: ['csv', 'json', 'n8nObject'],
           selectorMode: ['advanced'],
           tablePreset: ['all-tables', 'first-table', 'last-table', 'table-under-heading', 'custom'],
+        },
+      },
+    },
+    // Data Manipulation Options
+    {
+      displayName: 'Show Data Manipulation',
+      name: 'showDataManipulation',
+      type: 'boolean',
+      default: false,
+      description: 'Show data manipulation options for sorting, filtering, and reordering fields',
+      displayOptions: {
+        show: {
+          operation: ['convert'],
+        },
+      },
+    },
+    {
+      displayName: 'Sort By Field',
+      name: 'sortByField',
+      type: 'string',
+      default: '',
+      description: 'Field name to sort by. Field name matching is case-insensitive. Leave empty for no sorting.',
+      displayOptions: {
+        show: {
+          operation: ['convert'],
+          showDataManipulation: [true],
+        },
+      },
+    },
+    {
+      displayName: 'Sort Order',
+      name: 'sortOrder',
+      type: 'options',
+      options: [
+        { name: 'Ascending', value: 'ascending' },
+        { name: 'Descending', value: 'descending' },
+      ],
+      default: 'ascending',
+      description: 'Sort order for the specified field',
+      displayOptions: {
+        show: {
+          operation: ['convert'],
+          showDataManipulation: [true],
+        },
+      },
+    },
+    {
+      displayName: 'Fields',
+      name: 'fields',
+      type: 'string',
+      default: '',
+      description: 'Comma-separated list of field names to include and reorder. If specified, only these fields will be included in the output, in the order listed. Field names containing spaces should be wrapped in quotation marks (e.g., "field name", "another field", simple_field). Field name matching is case-insensitive, but original casing is preserved in output. Leave empty to include all fields in their original order.',
+      displayOptions: {
+        show: {
+          operation: ['convert'],
+          showDataManipulation: [true],
         },
       },
     },

@@ -1,7 +1,11 @@
-import type { FormatType, ValidationResult } from '../types';
+import type { FormatType } from '../types';
 import * as cheerio from 'cheerio';
-import Papa from 'papaparse';
-import { ValidationError } from './errors';
+import * as Papa from 'papaparse';
+
+interface ValidationResult {
+  valid: boolean;
+  error?: string;
+}
 
 /**
  * Validates the input data based on the specified format
@@ -9,34 +13,34 @@ import { ValidationError } from './errors';
 export function validateInput(inputData: string | object, format: FormatType): ValidationResult {
   // Handle n8nObject format separately since it's not a string
   if (format === 'n8nObject') {
-    validateN8nObject(inputData);
-    return { valid: true };
+    return validateN8nObject(inputData);
   }
 
   // For other formats, ensure we have a string
   if (typeof inputData !== 'string') {
-    throw new ValidationError(`Input data must be a string for ${format} format`, { source: format });
+    return { valid: false, error: `Input data must be a string for ${format} format` };
   }
 
   if (!inputData || inputData.trim() === '') {
-    throw new ValidationError('Input data is empty', { source: format });
+    return { valid: false, error: 'Input data is empty' };
   }
 
+  let result: ValidationResult;
   switch (format) {
     case 'html':
-      validateHtml(inputData);
+      result = validateHtml(inputData);
       break;
     case 'csv':
-      validateCsv(inputData);
+      result = validateCsv(inputData);
       break;
     case 'json':
-      validateJson(inputData);
+      result = validateJson(inputData);
       break;
     default:
-      throw new ValidationError(`Unsupported format: ${format}`, { source: format });
+      return { valid: false, error: `Unsupported format: ${format}` };
   }
 
-  return { valid: true };
+  return result;
 }
 
 /**
@@ -49,12 +53,12 @@ function validateN8nObject(data: string | object): ValidationResult {
 
     // Check if the object structure is valid
     if (parsed === null || typeof parsed !== 'object') {
-      throw new ValidationError('n8n Object must be an object or array', { source: 'n8nObject' });
+      return { valid: false, error: 'n8n Object must be an object or array' };
     }
 
     return { valid: true };
   } catch (error) {
-    throw new ValidationError(`Invalid n8n Object: ${error.message}`, { source: 'n8nObject' });
+    return { valid: false, error: `Invalid n8n Object: ${error.message}` };
   }
 }
 
@@ -67,12 +71,12 @@ function validateHtml(html: string): ValidationResult {
     const tables = $('table');
 
     if (tables.length === 0) {
-      throw new ValidationError('No HTML tables found in the input', { source: 'html' });
+      return { valid: false, error: 'No HTML tables found in the input' };
     }
 
     return { valid: true };
   } catch (error) {
-    throw new ValidationError(`Invalid HTML: ${error.message}`, { source: 'html' });
+    return { valid: false, error: `Invalid HTML: ${error.message}` };
   }
 }
 
@@ -84,28 +88,31 @@ function validateCsv(csv: string): ValidationResult {
     const result = Papa.parse(csv, { skipEmptyLines: true });
 
     if (result.errors && result.errors.length > 0) {
-      throw new ValidationError(result.errors.map((e) => e.message).join(', '), { source: 'csv' });
+      return { valid: false, error: result.errors.map((e) => e.message).join(', ') };
     }
 
     if (!result.data || result.data.length === 0) {
-      throw new ValidationError('CSV data is empty or contains no valid rows', { source: 'csv' });
+      return { valid: false, error: 'CSV data is empty or contains no valid rows' };
     }
 
     // Check if all rows have the same number of columns
     const data = result.data as unknown[][];
+    if (data.length === 0) {
+      return { valid: false, error: 'CSV data contains no rows' };
+    }
     const firstRowLength = data[0].length;
     const inconsistentRow = data.findIndex((row) => row.length !== firstRowLength);
 
     if (inconsistentRow !== -1) {
-      throw new ValidationError(
-        `Inconsistent CSV structure: Row ${inconsistentRow + 1} has ${data[inconsistentRow].length} columns, expected ${firstRowLength}`,
-        { source: 'csv' }
-      );
+      return {
+        valid: false,
+        error: `Inconsistent CSV structure: Row ${inconsistentRow + 1} has ${data[inconsistentRow].length} columns, expected ${firstRowLength}`
+      };
     }
 
     return { valid: true };
   } catch (error) {
-    throw new ValidationError(`Invalid CSV: ${error.message}`, { source: 'csv' });
+    return { valid: false, error: `Invalid CSV: ${error.message}` };
   }
 }
 
@@ -118,13 +125,13 @@ function validateJson(json: string): ValidationResult {
 
     // Check if the JSON structure is valid for conversion
     if (parsed === null || typeof parsed !== 'object') {
-      throw new ValidationError('JSON must be an object or array', { source: 'json' });
+      return { valid: false, error: 'JSON must be an object or array' };
     }
 
     // If it's an array, make sure it's not empty and validate its structure
     if (Array.isArray(parsed)) {
       if (parsed.length === 0) {
-        throw new ValidationError('JSON array is empty', { source: 'json' });
+        return { valid: false, error: 'JSON array is empty' };
       }
 
       // Handle array of arrays (e.g. [[1,2],[3,4]]) similar to CSV row validation
@@ -140,6 +147,9 @@ function validateJson(json: string): ValidationResult {
           };
         }
 
+        if (rows.length === 0) {
+          return { valid: false, error: 'JSON array of arrays is empty' };
+        }
         const firstRowLength = rows[0].length;
         const inconsistentRow = rows.findIndex((row) => row.length !== firstRowLength);
 
@@ -167,6 +177,9 @@ function validateJson(json: string): ValidationResult {
         }
 
         // Check if all objects have the same keys
+        if (items.length === 0) {
+          return { valid: false, error: 'JSON array of objects is empty' };
+        }
         const firstItemKeys = Object.keys(items[0]).sort().join(',');
         const inconsistentItem = items.findIndex(
           (item) => Object.keys(item).sort().join(',') !== firstItemKeys
@@ -183,6 +196,6 @@ function validateJson(json: string): ValidationResult {
 
     return { valid: true };
   } catch (error) {
-    throw new ValidationError(`Invalid JSON: ${error.message}`, { source: 'json' });
+    return { valid: false, error: `Invalid JSON: ${error.message}` };
   }
 }

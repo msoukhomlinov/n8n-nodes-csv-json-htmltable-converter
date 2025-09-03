@@ -1,5 +1,5 @@
-import Papa from 'papaparse';
-import minifyHtml from '@minify-html/node';
+import * as Papa from 'papaparse';
+import * as minifyHtml from '@minify-html/node';
 import type { ConversionOptions, FormatType } from '../types';
 import {
   DEFAULT_CSV_DELIMITER,

@@ -1,6 +1,6 @@
-import tseslint from 'typescript-eslint';
+const tseslint = require('typescript-eslint');
 
-export default tseslint.config(
+module.exports = tseslint.config(
   // Apply TypeScript ESLint recommended rules to TypeScript files
   ...tseslint.configs.recommended.map(config => ({ ...config, files: ['**/*.ts'] })),
   // Ignore build outputs and non-TypeScript configs

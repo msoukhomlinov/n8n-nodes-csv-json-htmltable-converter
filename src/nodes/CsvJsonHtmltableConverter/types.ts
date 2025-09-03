@@ -1,34 +1,37 @@
 export type FormatType = 'html' | 'csv' | 'json' | 'n8nObject';
-
-export type SelectorMode = 'simple' | 'advanced';
-
 export type OperationType = 'convert' | 'replace' | 'style';
-
-export type TablePreset =
-  | 'all-tables'
-  | 'first-table'
-  | 'last-table'
-  | 'table-under-heading'
-  | 'custom'
-  | 'table-with-caption';
+export type SelectorMode = 'simple' | 'advanced';
+export type TablePreset = 'all-tables' | 'first-table' | 'last-table' | 'table-under-heading' | 'table-with-caption' | 'custom';
 
 export interface ConversionOptions {
+  // CSV options
   csvDelimiter?: string;
-  tableSelector?: string;
-  elementSelector?: string;
+
+  // HTML table selection options
   selectorMode?: SelectorMode;
   tablePreset?: TablePreset;
+  tableSelector?: string;
+  elementSelector?: string;
+
+  // Table-under-heading options
   headingLevel?: number;
   headingText?: string;
   tableIndex?: number;
+
+  // Table-with-caption options
+  captionText?: string;
+
+  // Output options
   includeTableHeaders?: boolean;
   prettyPrint?: boolean;
   multipleItems?: boolean;
-  replacementContent?: string;
-  replacementInputType?: FormatType;
-  captionText?: string;
-  // Style operation options
-  htmlInput?: string;
+
+  // Data manipulation options
+  sortByField?: string;
+  sortOrder?: 'ascending' | 'descending';
+  fields?: string;
+
+  // Table styling options
   tableClass?: string;
   tableStyle?: string;
   rowStyle?: string;
@@ -37,39 +40,50 @@ export interface ConversionOptions {
   evenRowColor?: string;
   oddRowColor?: string;
   borderStyle?: string;
+  borderWidth?: number;
   borderColor?: string;
   borderRadius?: string;
   borderCollapse?: string;
+  captionStyle?: string;
+  captionPosition?: string;
   tableTextAlign?: string;
   rowTextAlign?: string;
   cellTextAlign?: string;
-  borderWidth?: number;
-  captionStyle?: string;
-  captionPosition?: string;
-  [key: string]: unknown;
 }
 
-export interface ValidationResult {
-  valid: boolean;
-  error?: string;
-}
-
+/**
+ * Represents extracted table data from HTML
+ */
 export interface TableData {
   headers: string[];
   rows: string[][];
   caption?: string;
 }
 
-export interface HtmlTableOptions {
-  tableSelector: string;
-  includeTableHeaders: boolean;
+/**
+ * Configuration for table-under-heading selector
+ */
+export interface TableUnderHeadingConfig {
+  headingLevel: number;
+  headingSelector: string;
+  headingText: string;
+  tableIndex: number;
 }
 
-export interface CsvOptions {
-  delimiter: string;
-  includeHeaders: boolean;
+/**
+ * Configuration for table-with-caption selector
+ */
+export interface TableWithCaptionConfig {
+  captionText: string;
 }
 
-export interface JsonOptions {
-  prettyPrint: boolean;
+/**
+ * Selector configuration - replaces JSON string approach
+ */
+export interface SelectorConfig {
+  type: 'standard' | 'table-under-heading' | 'table-with-caption';
+  tableSelector?: string;
+  elementSelector?: string;
+  tableUnderHeading?: TableUnderHeadingConfig;
+  tableWithCaption?: TableWithCaptionConfig;
 }

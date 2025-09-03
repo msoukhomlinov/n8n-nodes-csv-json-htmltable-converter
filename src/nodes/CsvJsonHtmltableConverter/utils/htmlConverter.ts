@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
-import Papa from 'papaparse';
-import minifyHtml from '@minify-html/node';
+import * as Papa from 'papaparse';
+import * as minifyHtml from '@minify-html/node';
 import type { ConversionOptions, TableData, FormatType } from '../types';
 import {
   DEFAULT_INCLUDE_HEADERS,
@@ -8,14 +8,21 @@ import {
   MINIFY_OPTIONS,
 } from './constants';
 import { debug, debugSample } from './debug';
-import { getPresetSelectors, findTablesAfterElement } from './tableSelectors';
+import { getPresetSelectorsLegacy, findTablesAfterElement } from './tableSelectors';
+import type { TableUnderHeadingConfig, TableWithCaptionConfig } from '../types';
 import { ValidationError } from './errors';
+import { sanitizeHtml, validateHtmlInput } from './htmlSanitizer';
+import { TableExtractor, DOMPerformanceMonitor } from './domOptimizer';
+
 
 /**
  * Extracts table data from HTML
  */
 function extractTableData(html: string, options: ConversionOptions, target: FormatType): TableData[] {
-  const $ = cheerio.load(html);
+  // Validate and sanitize HTML input for security
+  validateHtmlInput(html);
+  const sanitizedHtml = sanitizeHtml(html);
+  const $ = cheerio.load(sanitizedHtml);
   const tables: TableData[] = [];
   const includeHeaders =
     options.includeTableHeaders !== undefined
@@ -35,26 +42,26 @@ function extractTableData(html: string, options: ConversionOptions, target: Form
   if (options.selectorMode === 'simple') {
     // Use preset selectors for simple mode
     const preset = options.tablePreset || 'all-tables';
-    const presetSelectors = getPresetSelectors(preset, options);
+    const presetSelectors = getPresetSelectorsLegacy(preset, options);
 
-    elementSelector = presetSelectors.elementSelector;
+    elementSelector = presetSelectors.elementSelector || 'html';
 
     // If custom preset, use the provided tableSelector
     if (preset === 'custom') {
       tableSelector = options.tableSelector?.trim() || 'table';
     } else {
-      tableSelector = presetSelectors.tableSelector;
+      tableSelector = presetSelectors.tableSelector || 'table';
     }
   } else {
     // Use advanced mode with separate selectors
-    elementSelector = options.elementSelector?.trim() || '';
+    elementSelector = options.elementSelector?.trim() || 'html';
     tableSelector = options.tableSelector?.trim() || 'table';
   }
 
   try {
     // Special handling for table-under-heading preset
     if (elementSelector === 'special:table-under-heading') {
-      const config = JSON.parse(tableSelector);
+      const config: TableUnderHeadingConfig = JSON.parse(tableSelector);
       const headingLevel = config.headingLevel;
       const headingSelector = config.headingSelector || `h${headingLevel}`;
       const headingText = config.headingText;
@@ -97,7 +104,7 @@ function extractTableData(html: string, options: ConversionOptions, target: Form
 
     // Special handling for table-with-caption preset
     if (elementSelector === 'special:table-with-caption') {
-      const config = JSON.parse(tableSelector);
+      const config: TableWithCaptionConfig = JSON.parse(tableSelector);
       const captionText = config.captionText;
       const matchingTables: cheerio.Element[] = [];
       $('table').each((_, table) => {
@@ -235,76 +242,12 @@ function processTable(
 ): void {
   debug('htmlConverter.ts', `processTable - includeHeaders: ${includeHeaders}`);
 
-  const tableData: TableData = {
-    headers: [],
-    rows: [],
-  };
-
-  // Extract caption if present
-  const caption = $(table).find('caption').first();
-  if (caption.length > 0) {
-    tableData.caption = caption.text().trim();
-  }
-
-  // Determine if there's a header row we can identify
-  let headerRowSelector = '';
-  let isHeaderRowIdentified = false;
-
-  // Check if there's a thead with rows
-  if ($(table).find('thead tr').length > 0) {
-    headerRowSelector = 'thead tr:first-child';
-    isHeaderRowIdentified = true;
-  } else {
-    // If no thead, check if first row has th elements
-    if ($(table).find('tr:first-child th').length > 0) {
-      headerRowSelector = 'tr:first-child';
-      isHeaderRowIdentified = true;
-    } else if ($(table).find('tr').length > 0) {
-      // If no clear header indicators, assume first row is header
-      headerRowSelector = 'tr:first-child';
-      isHeaderRowIdentified = true;
-    }
-  }
-
-  // Extract headers if we found a header row (regardless of includeHeaders flag)
-  // We need the headers for internal use even if they won't be included in output
-  if (headerRowSelector) {
-    $(table)
-      .find(`${headerRowSelector} th, ${headerRowSelector} td`)
-      .each((_, cell) => {
-        tableData.headers.push($(cell).text().trim());
-      });
-  }
-
-  // Determine which rows to extract as data
-  let dataRowSelector: string;
-
-  if (isHeaderRowIdentified) {
-    // Skip the header row
-    dataRowSelector =
-      headerRowSelector === 'thead tr:first-child'
-        ? 'tbody tr, tr:not(thead tr)'
-        : 'tr:not(:first-child)';
-  } else {
-    // No header row identified, include all rows
-    dataRowSelector = 'tr';
-  }
-
-  // Extract data rows
-  $(table)
-    .find(dataRowSelector)
-    .each((_, row) => {
-      const rowData: string[] = [];
-      $(row)
-        .find('td, th')
-        .each((_, cell) => {
-          rowData.push($(cell).text().trim());
-        });
-
-      if (rowData.length > 0) {
-        tableData.rows.push(rowData);
-      }
-    });
+  // Use optimized table extractor with performance monitoring
+  const extractor = new TableExtractor($.html());
+  const tableData = DOMPerformanceMonitor.timeOperation(
+    `extractTableData`,
+    () => extractor.extractTableData(table, includeHeaders)
+  );
 
   tables.push(tableData);
 }
@@ -404,7 +347,7 @@ export async function htmlToJson(html: string, options: ConversionOptions): Prom
         debug('htmlConverter.ts', `htmlToJson - Including headers for table ${tableIndex + 1}`);
         for (const row of table.rows) {
           const rowObj: Record<string, string> = {};
-          table.headers.forEach((header, index) => {
+          table.headers.forEach((header: string, index: number) => {
             if (index < row.length) {
               rowObj[header] = row[index];
             }
@@ -444,7 +387,7 @@ export async function htmlToJson(html: string, options: ConversionOptions): Prom
     debug('htmlConverter.ts', 'htmlToJson - Including headers for single table');
     for (const row of table.rows) {
       const rowObj: Record<string, string> = {};
-      table.headers.forEach((header, index) => {
+      table.headers.forEach((header: string, index: number) => {
         if (index < row.length) {
           rowObj[header] = row[index];
         }

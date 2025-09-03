@@ -1,19 +1,15 @@
-import type { IExecuteFunctions, INodeExecutionData, INodeType, INodeTypeDescription, IDataObject } from 'n8n-workflow';
-import {
-  NodeOperationError,
-} from 'n8n-workflow';
+import type { IExecuteFunctions, INodeExecutionData, INodeType, INodeTypeDescription } from 'n8n-workflow';
+import { NodeOperationError } from 'n8n-workflow';
 
-import { convertData } from './utils/convertData';
-import { validateInput } from './utils/validateInput';
-import { jsonToHtml } from './utils/jsonConverter';
-import type { FormatType, ConversionOptions, SelectorMode, TablePreset, OperationType } from './types';
+import type { OperationType } from './types';
 import { nodeDescription } from './nodeDescription';
-import Papa from 'papaparse';
-import { replaceTable } from './utils/replaceTable';
-import { debug } from './utils/debug';
-import minifyHtml from '@minify-html/node';
-import { applyTableStyles } from './utils/applyTableStyles';
-import { MINIFY_OPTIONS } from './utils/constants';
+import {
+  handleReplaceOperation,
+  handleStyleOperation,
+  handleN8nObjectProcessing,
+  handleRegularConversion,
+  type OperationContext
+} from './utils/operationHandlers';
 
 export class CsvJsonHtmltableConverter implements INodeType {
   description: INodeTypeDescription = nodeDescription;
@@ -22,457 +18,39 @@ export class CsvJsonHtmltableConverter implements INodeType {
     const items = this.getInputData();
     const returnData: INodeExecutionData[] = [];
 
+    const context: OperationContext = {
+      executeFunctions: this,
+      items,
+      returnData,
+    };
+
     try {
       // Get the operation type
       const operation = this.getNodeParameter('operation', 0) as OperationType;
 
-      // Handle the Replace operation
-      if (operation === 'replace') {
-        for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
-          const sourceHtml = this.getNodeParameter('sourceHtml', itemIndex) as string;
-          const replacementFormat = this.getNodeParameter('replacementFormat', itemIndex) as FormatType;
-          const replacementContent = this.getNodeParameter('replacementContent', itemIndex) as string;
-          const outputField = this.getNodeParameter('outputField', itemIndex, 'convertedData') as string;
-          const prettyPrint = this.getNodeParameter('prettyPrint', itemIndex, false) as boolean;
+      // Route to appropriate operation handler
+      switch (operation) {
+        case 'replace':
+          return await handleReplaceOperation(context);
 
-          // Collect options for table selection
-          const options: ConversionOptions = {
-            prettyPrint,
-          };
+        case 'style':
+          return await handleStyleOperation(context);
 
-          // Set selection options based on mode
-          options.selectorMode = this.getNodeParameter('selectorMode', itemIndex, 'simple') as SelectorMode;
-
-          if (options.selectorMode === 'simple') {
-            options.tablePreset = this.getNodeParameter('tablePreset', itemIndex, 'all-tables') as TablePreset;
-
-            if (options.tablePreset === 'table-under-heading') {
-              options.headingLevel = this.getNodeParameter('headingLevel', itemIndex, 1) as number;
-              options.headingText = this.getNodeParameter('headingText', itemIndex, '') as string;
-              options.tableIndex = this.getNodeParameter('tableIndex', itemIndex, 1) as number;
-            }
-
-            if (options.tablePreset === 'custom') {
-              options.tableSelector = this.getNodeParameter('tableSelector', itemIndex, 'table') as string;
-            }
+        case 'convert':
+          // Check for special n8nObject processing
+          if (this.getNodeParameter('sourceFormat', 0) === 'n8nObject' &&
+              ['html', 'csv', 'json'].includes(this.getNodeParameter('targetFormat', 0) as string)) {
+            return await handleN8nObjectProcessing(context);
           } else {
-            // Advanced mode
-            options.tableSelector = this.getNodeParameter('tableSelector', itemIndex, 'table') as string;
-            options.elementSelector = this.getNodeParameter('elementSelector', itemIndex, 'html') as string;
+            return await handleRegularConversion(context);
           }
 
-          // If the replacement content is not HTML, convert it to HTML first
-          let htmlReplacementContent = replacementContent;
-
-          if (replacementFormat !== 'html') {
-            // Validate the replacement content
-            const validationResult = validateInput(replacementContent, replacementFormat);
-            if (!validationResult.valid) {
-              throw new NodeOperationError(this.getNode(), `Invalid replacement content: ${validationResult.error}`);
-            }
-
-            // Convert replacement content to HTML
-            const conversionOptions: ConversionOptions = {
-              prettyPrint,
-              includeTableHeaders: true,
-            };
-
-            if (replacementFormat === 'csv') {
-              conversionOptions.csvDelimiter = ',';
-            }
-
-            htmlReplacementContent = await convertData(replacementContent, replacementFormat, 'html', conversionOptions) as string;
-          }
-
-          // Replace the table in the source HTML
-          const result = await replaceTable(sourceHtml, htmlReplacementContent, options);
-
-          // Return the result
-          returnData.push({
-            json: {
-              [outputField]: result,
-            },
-          });
-        }
-
-        return [returnData];
+        default:
+          throw new NodeOperationError(this.getNode(), `Unknown operation: ${operation}`);
       }
-
-      // Handle the Style operation
-      if (operation === 'style') {
-        for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
-          const htmlInput = this.getNodeParameter('htmlInput', itemIndex) as string;
-          const tableClass = this.getNodeParameter('tableClass', itemIndex, '') as string;
-          const tableStyle = this.getNodeParameter('tableStyle', itemIndex, '') as string;
-          const rowStyle = this.getNodeParameter('rowStyle', itemIndex, '') as string;
-          const cellStyle = this.getNodeParameter('cellStyle', itemIndex, '') as string;
-          const zebraStriping = this.getNodeParameter('zebraStriping', itemIndex, false) as boolean;
-          const evenRowColor = this.getNodeParameter('evenRowColor', itemIndex, '') as string;
-          const oddRowColor = this.getNodeParameter('oddRowColor', itemIndex, '') as string;
-          const borderStyle = this.getNodeParameter('borderStyle', itemIndex, '') as string;
-          const borderWidth = this.getNodeParameter('borderWidth', itemIndex, 1) as number;
-          const captionStyle = this.getNodeParameter('captionStyle', itemIndex, '') as string;
-          const captionPosition = this.getNodeParameter('captionPosition', itemIndex, 'top') as string;
-          const borderColor = this.getNodeParameter('borderColor', itemIndex, '') as string;
-          const borderRadius = this.getNodeParameter('borderRadius', itemIndex, '') as string;
-          const borderCollapse = this.getNodeParameter('borderCollapse', itemIndex, '') as string;
-          const tableTextAlign = this.getNodeParameter('tableTextAlign', itemIndex, '') as string;
-          const rowTextAlign = this.getNodeParameter('rowTextAlign', itemIndex, '') as string;
-          const cellTextAlign = this.getNodeParameter('cellTextAlign', itemIndex, '') as string;
-          const outputField = this.getNodeParameter('outputField', itemIndex, 'styledHtml') as string;
-
-          const styleOptions = {
-            tableClass,
-            tableStyle,
-            rowStyle,
-            cellStyle,
-            zebraStriping,
-            evenRowColor,
-            oddRowColor,
-            borderStyle,
-            borderColor,
-            borderRadius,
-            borderCollapse,
-            tableTextAlign,
-            rowTextAlign,
-            cellTextAlign,
-            borderWidth,
-            captionStyle,
-            captionPosition,
-          };
-
-          const styledHtml = applyTableStyles(htmlInput, styleOptions);
-
-          returnData.push({
-            json: {
-              [outputField]: styledHtml,
-            },
-          });
-        }
-        return [returnData];
-      }
-
-      // Special handling for n8nObject to HTML/CSV/JSON conversion - collect all items into one array
-      if (this.getNodeParameter('sourceFormat', 0) === 'n8nObject' &&
-          (this.getNodeParameter('targetFormat', 0) === 'html' ||
-           this.getNodeParameter('targetFormat', 0) === 'csv' ||
-           this.getNodeParameter('targetFormat', 0) === 'json')) {
-
-        // Get individual options
-        const targetFormat = this.getNodeParameter('targetFormat', 0) as FormatType;
-
-        // Use parameters from UI for n8nObject to HTML conversion
-        let outputField = 'convertedData';
-        let includeTableHeaders = true;
-        let prettyPrint = false;
-
-        // For HTML, get the parameter values from the UI
-        if (targetFormat === 'html') {
-          try {
-            outputField = this.getNodeParameter('outputField', 0) as string;
-            includeTableHeaders = this.getNodeParameter('includeTableHeaders', 0, true) as boolean;
-            prettyPrint = this.getNodeParameter('prettyPrint', 0, false) as boolean;
-          } catch (error) {
-            // Use defaults if parameters not found
-          }
-        }
-
-        // For CSV/JSON, always combine everything regardless of multipleItems setting
-        const multipleItems = false; // Default to false for n8nObject source format
-        const csvDelimiter = targetFormat === 'csv' ? this.getNodeParameter('csvDelimiterOutput', 0, ',') as string : ',';
-
-        // Combine into options object
-        const options: ConversionOptions = {
-          includeTableHeaders,
-          prettyPrint,
-          multipleItems,
-          csvDelimiter
-        };
-
-        // Collect all input items
-        const allItems: IDataObject[] = [];
-
-        for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
-          // Get the input data, handling differently for n8nObject format
-          let inputData: object;
-
-          // Check if we're getting input from a previous node's n8nObject output
-          const isInputFromPreviousNodeObject = Object.keys(items[itemIndex].json).length > 0 &&
-                                              ((items[itemIndex].json.convertedData !== undefined &&
-                                              typeof items[itemIndex].json.convertedData === 'object') ||
-                                              // Or if this is a direct data item from n8nObject format (without output field wrapper)
-                                              Object.keys(items[itemIndex].json).filter(key => !key.startsWith('__')).length > 0);
-
-          // Handle cases where input data is passed directly from another node using {{ $('Node').item.json }}
-          const expressionNodeInput = (rawInput: unknown): boolean => {
-            return typeof rawInput === 'string' &&
-                   rawInput.includes('[object Object]') &&
-                   Object.keys(items[itemIndex].json).length > 0;
-          };
-
-          // For n8nObject from previous node or passed via expression
-          if (isInputFromPreviousNodeObject || expressionNodeInput(this.getNodeParameter('inputData', itemIndex, ''))) {
-            // Extract data directly from the item's json
-            if (items[itemIndex].json.convertedData !== undefined) {
-              // If there's a convertedData field, use that
-              inputData = items[itemIndex].json.convertedData as object;
-            } else {
-              // Otherwise use the json object itself (filtering out n8n internal fields)
-              const filteredData: IDataObject = {};
-              for (const key of Object.keys(items[itemIndex].json)) {
-                if (!key.startsWith('__')) {
-                  filteredData[key] = items[itemIndex].json[key];
-                }
-              }
-              inputData = filteredData;
-            }
-          } else {
-            // For n8nObject from inputData parameter, we can accept either a JSON string or an actual object
-            const rawInput = this.getNodeParameter('inputData', itemIndex, '');
-
-            // If it's a non-empty string, try to parse it as JSON
-            if (typeof rawInput === 'string' && rawInput.trim() !== '') {
-              try {
-                inputData = JSON.parse(rawInput);
-              } catch (error) {
-                // If parsing fails, use the string as-is
-                inputData = { value: rawInput };
-              }
-            } else if (rawInput === undefined || rawInput === null) {
-              // Provide an empty object as default if undefined or null
-              inputData = {};
-            } else {
-              // Otherwise use the raw input (might be an object already)
-              inputData = rawInput as object;
-            }
-          }
-
-          // If it's an array, add each item, otherwise add the object itself
-          if (Array.isArray(inputData)) {
-            for (const item of inputData) {
-              if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
-                allItems.push(item as IDataObject);
-              }
-            }
-          } else if (!Array.isArray(inputData)) {
-            allItems.push(inputData as IDataObject);
-          }
-        }
-
-        // If we collected any items
-        if (allItems.length > 0) {
-          let finalResult = '';
-
-          // Convert based on target format
-          if (targetFormat === 'html') {
-            // Convert the combined array to HTML
-            const htmlTable = await jsonToHtml(allItems, options);
-
-            // Minify the HTML if pretty print is disabled
-            finalResult = !prettyPrint
-              ? minifyHtml.minify(Buffer.from(htmlTable), MINIFY_OPTIONS).toString()
-              : htmlTable;
-          } else if (targetFormat === 'csv') {
-            // For CSV, use Papa.unparse directly to ensure consistent output
-            const result = Papa.unparse(allItems, {
-              delimiter: csvDelimiter,
-              header: includeTableHeaders
-            });
-            finalResult = result;
-          } else if (targetFormat === 'json') {
-            // For JSON, use JSON.stringify directly
-            finalResult = JSON.stringify(allItems, null, prettyPrint ? 2 : 0);
-          }
-
-          // Return a single item with just the converted data
-          returnData.push({
-            json: {
-              [outputField]: finalResult,
-            },
-          });
-
-          return [returnData];
-        }
-
-        // If no valid items found, return appropriate empty format
-        let emptyResult: string;
-        if (targetFormat === 'html') {
-          emptyResult = '<table></table>';
-        } else if (targetFormat === 'csv') {
-          emptyResult = '';
-        } else { // json
-          emptyResult = '[]';
-        }
-
-        returnData.push({
-          json: {
-            [outputField]: emptyResult,
-          },
-        });
-
-        return [returnData];
-      }
-
-      // Regular processing for other formats
-      for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
-        const sourceFormat = this.getNodeParameter('sourceFormat', itemIndex) as FormatType;
-        const targetFormat = this.getNodeParameter('targetFormat', itemIndex) as FormatType;
-        const outputField = this.getNodeParameter('outputField', itemIndex, 'convertedData') as string;
-
-        // Collect all options from individual parameters
-        const options: ConversionOptions = {};
-
-        // Set CSV delimiter based on source and target format
-        if (sourceFormat === 'csv') {
-          options.csvDelimiter = this.getNodeParameter('csvDelimiterInput', itemIndex, ',') as string;
-        } else if (targetFormat === 'csv') {
-          options.csvDelimiter = this.getNodeParameter('csvDelimiterOutput', itemIndex, ',') as string;
-        }
-
-        // Set HTML table selection options
-        if (sourceFormat === 'html') {
-          options.selectorMode = this.getNodeParameter('selectorMode', itemIndex, 'simple') as SelectorMode;
-
-          if (options.selectorMode === 'simple') {
-            options.tablePreset = this.getNodeParameter('tablePreset', itemIndex, 'all-tables') as TablePreset;
-
-            if (options.tablePreset === 'table-under-heading') {
-              options.headingLevel = this.getNodeParameter('headingLevel', itemIndex, 1) as number;
-              options.headingText = this.getNodeParameter('headingText', itemIndex, '') as string;
-              options.tableIndex = this.getNodeParameter('tableIndex', itemIndex, 1) as number;
-            }
-
-            if (options.tablePreset === 'custom') {
-              options.tableSelector = this.getNodeParameter('tableSelector', itemIndex, 'table') as string;
-            }
-          } else {
-            // Advanced mode
-            options.tableSelector = this.getNodeParameter('tableSelector', itemIndex, 'table') as string;
-            options.elementSelector = this.getNodeParameter('elementSelector', itemIndex, 'html') as string;
-          }
-        }
-
-        // Common options for all formats
-        if (sourceFormat === 'n8nObject' && targetFormat !== 'html') {
-          // Set defaults for n8nObject source format except for HTML target
-          options.includeTableHeaders = true;
-          options.multipleItems = false;
-          debug('CsvJsonHtmltableConverter.node.ts', `n8nObject source format: includeTableHeaders=${options.includeTableHeaders}`);
-        } else {
-          // For other source formats, use the parameters from the UI
-          options.multipleItems = this.getNodeParameter('multipleItems', itemIndex, false) as boolean;
-
-          // Use includeTableHeaders parameter for HTML, CSV, and JSON target formats
-          if (targetFormat === 'html' || targetFormat === 'csv' || targetFormat === 'json') {
-            options.includeTableHeaders = this.getNodeParameter('includeTableHeaders', itemIndex, true) as boolean;
-            debug('CsvJsonHtmltableConverter.node.ts', `sourceFormat=${sourceFormat}, targetFormat=${targetFormat}, includeTableHeaders=${options.includeTableHeaders}`);
-          } else {
-            options.includeTableHeaders = true;
-            debug('CsvJsonHtmltableConverter.node.ts', `Other target format: includeTableHeaders=${options.includeTableHeaders}`);
-          }
-        }
-
-        // Options specific to certain target formats
-        if (['json', 'html', 'n8nObject'].includes(targetFormat)) {
-          options.prettyPrint = this.getNodeParameter('prettyPrint', itemIndex, false) as boolean;
-        }
-
-        // Get the input data, handling differently for n8nObject source format or data coming from a previous n8nObject conversion
-        let inputData: string | object;
-
-        // Check if we're getting input from a previous node's n8nObject output
-        const isInputFromPreviousNodeObject = sourceFormat === 'n8nObject' &&
-                                            Object.keys(items[itemIndex].json).length > 0 &&
-                                            ((items[itemIndex].json.convertedData !== undefined &&
-                                            typeof items[itemIndex].json.convertedData === 'object') ||
-                                            // Or if this is a direct data item from n8nObject format (without output field wrapper)
-                                            Object.keys(items[itemIndex].json).filter(key => !key.startsWith('__')).length > 0);
-
-        // Handle cases where input data is passed directly from another node using {{ $('Node').item.json }}
-        // This typically arrives as the raw input containing the string [object Object]
-        const expressionNodeInput = (rawInput: unknown): boolean => {
-          return typeof rawInput === 'string' &&
-                 rawInput.includes('[object Object]') &&
-                 Object.keys(items[itemIndex].json).length > 0;
-        };
-
-        if (isInputFromPreviousNodeObject || (sourceFormat === 'n8nObject' && expressionNodeInput(this.getNodeParameter('inputData', itemIndex)))) {
-          // Extract data directly from the item's json
-          if (items[itemIndex].json.convertedData !== undefined) {
-            // If there's a convertedData field, use that
-            inputData = items[itemIndex].json.convertedData as object;
-          } else {
-            // Otherwise use the json object itself (filtering out n8n internal fields)
-            const filteredData: IDataObject = {};
-            for (const key of Object.keys(items[itemIndex].json)) {
-              if (!key.startsWith('__')) {
-                filteredData[key] = items[itemIndex].json[key];
-              }
-            }
-            inputData = filteredData;
-          }
-        } else if (sourceFormat === 'n8nObject') {
-          // For n8nObject from inputData parameter, we can accept either a JSON string or an actual object
-          const rawInput = this.getNodeParameter('inputData', itemIndex);
-
-          // If it's a non-empty string, try to parse it as JSON
-          if (typeof rawInput === 'string' && rawInput.trim() !== '') {
-            try {
-              inputData = JSON.parse(rawInput);
-            } catch (error) {
-              // If parsing fails, use the string as-is
-              inputData = { value: rawInput };
-            }
-          } else if (rawInput === undefined || rawInput === null) {
-            // Provide an empty object as default if undefined or null
-            inputData = {};
-          } else {
-            // Otherwise use the raw input (might be an object already)
-            inputData = rawInput as object;
-          }
-        } else {
-          // For other formats, get as string
-          inputData = this.getNodeParameter('inputData', itemIndex) as string;
-        }
-
-        // Validate the input data
-        const validationResult = validateInput(inputData, sourceFormat);
-        if (!validationResult.valid) {
-          throw new NodeOperationError(this.getNode(), `Invalid input data: ${validationResult.error}`);
-        }
-
-        // Convert the data
-        debug('CsvJsonHtmltableConverter.node.ts', `Before convertData call: includeTableHeaders=${options.includeTableHeaders}`, options);
-        const result = await convertData(inputData, sourceFormat, targetFormat, options);
-
-        // For n8n Object, return the object directly
-        if (targetFormat === 'n8nObject') {
-          if (Array.isArray(result)) {
-            // Spread array results so each entry becomes its own item
-            for (const row of result) {
-              returnData.push({
-                json: row as IDataObject,
-              });
-            }
-          } else {
-            returnData.push({
-              json: result as IDataObject,
-            });
-          }
-        } else {
-          // For other formats, return the converted string in the specified output field
-          returnData.push({
-            json: {
-              [outputField]: result,
-            },
-          });
-        }
-      }
-
-      return [returnData];
     } catch (error) {
+      // Clean up error messages
       if (error.message.includes('Error: ')) {
-        // If it's our own error message, clean it up a bit
         throw new NodeOperationError(this.getNode(), error.message.replace('Error: ', ''));
       }
       throw new NodeOperationError(this.getNode(), error);
