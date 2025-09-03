@@ -2,6 +2,16 @@
 
 All notable changes to the n8n-nodes-csv-json-htmltable-converter package will be documented in this file.
 
+## [1.3.0] - 2025-09-03
+
+### Fixed
+- Fixed n8n package installation error for whatwg-mimetype dependency by adding as direct dependency and bundling all dependencies
+- Enhanced dependency resolution for n8n community package compatibility
+
+### Changed
+- Added `bundledDependencies` field to `package.json` to ensure all dependencies are included in the package.
+- Expanded `bundledDependencies` to include all 27 transitive dependencies, permanently fixing n8n's module resolution issues.
+
 ## [1.2.4] - 2025-09-03
 
 ### Added
