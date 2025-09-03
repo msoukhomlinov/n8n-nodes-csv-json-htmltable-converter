@@ -555,17 +555,8 @@ export function formatOutputItem(result: any, targetFormat: FormatType, outputFi
     };
   }
 
-  // If wrapping is enabled, wrap ALL formats in the outputFieldName
-  // For n8nObject format with arrays, wrap each item
-  if (targetFormat === 'n8nObject' && Array.isArray(result)) {
-    return result.map(item => ({
-      json: {
-        [outputFieldName]: item
-      } as any,
-    }));
-  }
-
-  // For all formats (including n8nObject single items), wrap in the outputFieldName
+  // If wrapping is enabled, ALWAYS return a single execution item with the entire result nested
+  // under the specified output field name (including n8nObject arrays)
   return {
     json: {
       [outputFieldName]: result

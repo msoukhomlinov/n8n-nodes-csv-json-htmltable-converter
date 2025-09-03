@@ -59,30 +59,32 @@ describe('CSV, JSON and HTML conversions', () => {
     expect(arrayResult[1]).toEqual({ Product: '3CX Call Flow Designer (EXE-x64)', Vendor: '3CX Ltd.' });
   });
 
-  test('formatOutputItem should return n8nObject arrays as multiple execution items', async () => {
+  test('formatOutputItem should return single wrapped item for n8nObject arrays when wrapping enabled', async () => {
     const csvInput = '"Product","Vendor"\n"SyncBackFree","2BrightSparks"\n"3CX Call Flow Designer (EXE-x64)","3CX Ltd."';
     const convertResult = await convertData(csvInput, 'csv', 'n8nObject', { includeTableHeaders: true });
 
-    // This simulates what happens in handleRegularConversion with wrapping enabled (default)
-    const outputItems = formatOutputItem(convertResult, 'n8nObject', 'convertedData', true, 'convertedData');
-
-    // n8nObject format: arrays should be returned as multiple execution data items, each wrapped in convertedData
-    expect(Array.isArray(outputItems)).toBe(true);
-    expect(outputItems).toHaveLength(2);
-    expect((outputItems as any)[0].json).toEqual({ convertedData: { Product: 'SyncBackFree', Vendor: '2BrightSparks' } });
-    expect((outputItems as any)[1].json).toEqual({ convertedData: { Product: '3CX Call Flow Designer (EXE-x64)', Vendor: '3CX Ltd.' } });
+    // With wrapping enabled (default), expect a single execution item with entire array nested
+    const outputItem = formatOutputItem(convertResult, 'n8nObject', 'convertedData', true, 'convertedData') as any;
+    expect(Array.isArray(outputItem)).toBe(false);
+    expect(outputItem.json).toHaveProperty('convertedData');
+    expect(Array.isArray(outputItem.json.convertedData)).toBe(true);
+    expect(outputItem.json.convertedData).toHaveLength(2);
+    expect(outputItem.json.convertedData[0]).toEqual({ Product: 'SyncBackFree', Vendor: '2BrightSparks' });
+    expect(outputItem.json.convertedData[1]).toEqual({ Product: '3CX Call Flow Designer (EXE-x64)', Vendor: '3CX Ltd.' });
   });
 
-  test('CSV to n8nObject with user data should return multiple execution items', async () => {
+  test('CSV to n8nObject with user data returns single wrapped item when wrapping enabled', async () => {
     const userCsvInput = '"Product","Vendor"\n"SyncBackFree","2BrightSparks"\n"3CX Call Flow Designer (EXE-x64)","3CX Ltd."';
     const convertResult = await convertData(userCsvInput, 'csv', 'n8nObject', { includeTableHeaders: true });
-    const outputItems = formatOutputItem(convertResult, 'n8nObject', 'convertedData', true, 'convertedData');
+    const outputItem = formatOutputItem(convertResult, 'n8nObject', 'convertedData', true, 'convertedData') as any;
 
-    // Should return multiple execution items, each wrapped in convertedData (default behavior)
-    expect(Array.isArray(outputItems)).toBe(true);
-    expect(outputItems).toHaveLength(2);
-    expect((outputItems as any)[0].json).toEqual({ convertedData: { Product: 'SyncBackFree', Vendor: '2BrightSparks' } });
-    expect((outputItems as any)[1].json).toEqual({ convertedData: { Product: '3CX Call Flow Designer (EXE-x64)', Vendor: '3CX Ltd.' } });
+    // Should return a single item with array nested under convertedData
+    expect(Array.isArray(outputItem)).toBe(false);
+    expect(outputItem.json).toHaveProperty('convertedData');
+    expect(Array.isArray(outputItem.json.convertedData)).toBe(true);
+    expect(outputItem.json.convertedData).toHaveLength(2);
+    expect(outputItem.json.convertedData[0]).toEqual({ Product: 'SyncBackFree', Vendor: '2BrightSparks' });
+    expect(outputItem.json.convertedData[1]).toEqual({ Product: '3CX Call Flow Designer (EXE-x64)', Vendor: '3CX Ltd.' });
   });
 
   test('formatOutputItem with wrapOutput=false should return n8nObject arrays without wrapping', async () => {

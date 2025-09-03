@@ -2,7 +2,7 @@
 
 All notable changes to the n8n-nodes-csv-json-htmltable-converter package will be documented in this file.
 
-## [1.3.2] - 2025-09-03
+## [1.3.3] - 2025-09-03
 
 ### Added
 - **Configurable Output Wrapping:** Added "Wrap Output" boolean toggle (default: true) and "Output Field Name" parameter (default: "convertedData") to control output wrapping for ALL formats including n8nObject. When enabled, wraps results in specified field; when disabled, returns data directly.
