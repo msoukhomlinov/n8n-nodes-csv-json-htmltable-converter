@@ -63,58 +63,70 @@ describe('CSV, JSON and HTML conversions', () => {
     const csvInput = '"Product","Vendor"\n"SyncBackFree","2BrightSparks"\n"3CX Call Flow Designer (EXE-x64)","3CX Ltd."';
     const convertResult = await convertData(csvInput, 'csv', 'n8nObject', { includeTableHeaders: true });
 
-    // This simulates what happens in handleRegularConversion
-    const outputItems = formatOutputItem(convertResult, 'n8nObject', 'convertedData');
+    // This simulates what happens in handleRegularConversion with wrapping enabled (default)
+    const outputItems = formatOutputItem(convertResult, 'n8nObject', 'convertedData', true, 'convertedData');
 
-    // n8nObject format: arrays should be returned as multiple execution data items
+    // n8nObject format: arrays should be returned as multiple execution data items, each wrapped in convertedData
     expect(Array.isArray(outputItems)).toBe(true);
     expect(outputItems).toHaveLength(2);
-    expect((outputItems as any)[0].json).toEqual({ Product: 'SyncBackFree', Vendor: '2BrightSparks' });
-    expect((outputItems as any)[1].json).toEqual({ Product: '3CX Call Flow Designer (EXE-x64)', Vendor: '3CX Ltd.' });
+    expect((outputItems as any)[0].json).toEqual({ convertedData: { Product: 'SyncBackFree', Vendor: '2BrightSparks' } });
+    expect((outputItems as any)[1].json).toEqual({ convertedData: { Product: '3CX Call Flow Designer (EXE-x64)', Vendor: '3CX Ltd.' } });
   });
 
   test('CSV to n8nObject with user data should return multiple execution items', async () => {
     const userCsvInput = '"Product","Vendor"\n"SyncBackFree","2BrightSparks"\n"3CX Call Flow Designer (EXE-x64)","3CX Ltd."';
     const convertResult = await convertData(userCsvInput, 'csv', 'n8nObject', { includeTableHeaders: true });
-    const outputItems = formatOutputItem(convertResult, 'n8nObject', 'convertedData');
+    const outputItems = formatOutputItem(convertResult, 'n8nObject', 'convertedData', true, 'convertedData');
 
-    // Should return multiple execution items, not wrapped
+    // Should return multiple execution items, each wrapped in convertedData (default behavior)
+    expect(Array.isArray(outputItems)).toBe(true);
+    expect(outputItems).toHaveLength(2);
+    expect((outputItems as any)[0].json).toEqual({ convertedData: { Product: 'SyncBackFree', Vendor: '2BrightSparks' } });
+    expect((outputItems as any)[1].json).toEqual({ convertedData: { Product: '3CX Call Flow Designer (EXE-x64)', Vendor: '3CX Ltd.' } });
+  });
+
+  test('formatOutputItem with wrapOutput=false should return n8nObject arrays without wrapping', async () => {
+    const userCsvInput = '"Product","Vendor"\n"SyncBackFree","2BrightSparks"\n"3CX Call Flow Designer (EXE-x64)","3CX Ltd."';
+    const convertResult = await convertData(userCsvInput, 'csv', 'n8nObject', { includeTableHeaders: true });
+    const outputItems = formatOutputItem(convertResult, 'n8nObject', 'convertedData', false, 'convertedData');
+
+    // With wrapping disabled, should return data directly without wrapping
     expect(Array.isArray(outputItems)).toBe(true);
     expect(outputItems).toHaveLength(2);
     expect((outputItems as any)[0].json).toEqual({ Product: 'SyncBackFree', Vendor: '2BrightSparks' });
     expect((outputItems as any)[1].json).toEqual({ Product: '3CX Call Flow Designer (EXE-x64)', Vendor: '3CX Ltd.' });
   });
 
-  test('formatOutputItem should NOT wrap HTML output in convertedData', async () => {
+  test('formatOutputItem should wrap CSV output in convertedData', async () => {
     const htmlInput = '<table><tr><td>test</td></tr></table>';
     const convertResult = await convertData(htmlInput, 'html', 'csv', { includeTableHeaders: false });
     const outputItem = formatOutputItem(convertResult, 'csv', 'convertedData') as any;
 
-    // CSV format should return data directly, not wrapped under convertedData
-    expect(outputItem.json).toBe('test');
-    expect(outputItem.json).not.toHaveProperty('convertedData');
+    // CSV format should be wrapped under convertedData
+    expect(outputItem.json).toHaveProperty('convertedData');
+    expect(outputItem.json.convertedData).toBe('test');
   });
 
-  test('formatOutputItem should NOT wrap JSON string output in convertedData', async () => {
+  test('formatOutputItem should wrap JSON string output in convertedData', async () => {
     const htmlInput = '<table><tr><td>test</td></tr></table>';
     const convertResult = await convertData(htmlInput, 'html', 'json', { includeTableHeaders: false });
     const outputItem = formatOutputItem(convertResult, 'json', 'convertedData') as any;
 
-    // JSON format should return data directly, not wrapped under convertedData
-    expect(typeof outputItem.json).toBe('string');
-    expect(outputItem.json).toContain('test');
-    expect(outputItem.json).not.toHaveProperty('convertedData');
+    // JSON format should be wrapped under convertedData
+    expect(outputItem.json).toHaveProperty('convertedData');
+    expect(typeof outputItem.json.convertedData).toBe('string');
+    expect(outputItem.json.convertedData).toContain('test');
   });
 
-  test('formatOutputItem should NOT wrap HTML output in convertedData', async () => {
+  test('formatOutputItem should wrap HTML output in convertedData', async () => {
     const csvInput = '"name","age"\n"Alice","30"';
     const convertResult = await convertData(csvInput, 'csv', 'html', { includeTableHeaders: true });
     const outputItem = formatOutputItem(convertResult, 'html', 'convertedData') as any;
 
-    // HTML format should return data directly, not wrapped under convertedData
-    expect(typeof outputItem.json).toBe('string');
-    expect(outputItem.json).toContain('<table>');
-    expect(outputItem.json).toContain('Alice');
-    expect(outputItem.json).not.toHaveProperty('convertedData');
+    // HTML format should be wrapped under convertedData
+    expect(outputItem.json).toHaveProperty('convertedData');
+    expect(typeof outputItem.json.convertedData).toBe('string');
+    expect(outputItem.json.convertedData).toContain('<table>');
+    expect(outputItem.json.convertedData).toContain('Alice');
   });
 });

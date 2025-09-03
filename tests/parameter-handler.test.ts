@@ -121,6 +121,8 @@ describe('extractReplaceParameters', () => {
       tableIndex: 1,
       tableSelector: 'table',
       elementSelector: 'body',
+      wrapOutput: true,
+      outputFieldName: 'convertedData',
     };
 
     mockExecuteFunctions.getNodeParameter.mockImplementation((paramName: string) => {
@@ -165,6 +167,8 @@ describe('extractStyleParameters', () => {
       rowTextAlign: 'left',
       cellTextAlign: 'right',
       outputField: 'styledHtml',
+      wrapOutput: true,
+      outputFieldName: 'convertedData',
     };
 
     mockExecuteFunctions.getNodeParameter.mockImplementation((paramName: string) => {

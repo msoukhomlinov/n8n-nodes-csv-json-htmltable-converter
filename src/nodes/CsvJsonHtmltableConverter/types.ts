@@ -25,6 +25,8 @@ export interface ConversionOptions {
   includeTableHeaders?: boolean;
   prettyPrint?: boolean;
   multipleItems?: boolean;
+  wrapOutput?: boolean;
+  outputFieldName?: string;
 
   // Data manipulation options
   sortByField?: string;

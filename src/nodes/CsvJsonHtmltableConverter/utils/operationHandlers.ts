@@ -34,6 +34,8 @@ interface ReplaceParams {
   captionText: string;
   tableSelector: string;
   elementSelector: string;
+  wrapOutput: boolean;
+  outputFieldName: string;
 }
 
 interface StyleParams {
@@ -56,6 +58,8 @@ interface StyleParams {
   rowTextAlign: string;
   cellTextAlign: string;
   outputField: string;
+  wrapOutput: boolean;
+  outputFieldName: string;
 }
 
 interface ConversionParams {
@@ -77,6 +81,8 @@ interface ConversionParams {
   sortByField: string;
   sortOrder: 'ascending' | 'descending';
   fields: string;
+  wrapOutput: boolean;
+  outputFieldName: string;
 }
 
 interface N8nObjectParams {
@@ -86,6 +92,8 @@ interface N8nObjectParams {
   prettyPrint: boolean;
   multipleItems: boolean;
   csvDelimiter: string;
+  wrapOutput: boolean;
+  outputFieldName: string;
 }
 
 
@@ -114,10 +122,13 @@ export async function handleReplaceOperation(context: OperationContext): Promise
     // Replace the table in the source HTML
     const result = await replaceTable(params.sourceHtml, htmlReplacementContent, options);
 
-    // Return the result directly without wrapping
-    returnData.push({
-      json: result as any,
-    });
+    // Use formatOutputItem to handle wrapping based on user preferences
+    const outputItem = formatOutputItem(result, 'html', params.outputField, params.wrapOutput, params.outputFieldName);
+    if (Array.isArray(outputItem)) {
+      returnData.push(...outputItem);
+    } else {
+      returnData.push(outputItem);
+    }
   }
 
   return [returnData];
@@ -135,9 +146,13 @@ export async function handleStyleOperation(context: OperationContext): Promise<I
 
     const styledHtml = applyTableStyles(params.htmlInput, styleOptions);
 
-    returnData.push({
-      json: styledHtml as any,
-    });
+    // Use formatOutputItem to handle wrapping based on user preferences
+    const outputItem = formatOutputItem(styledHtml, 'html', params.outputField, params.wrapOutput, params.outputFieldName);
+    if (Array.isArray(outputItem)) {
+      returnData.push(...outputItem);
+    } else {
+      returnData.push(outputItem);
+    }
   }
 
   return [returnData];
@@ -158,15 +173,23 @@ export async function handleN8nObjectProcessing(context: OperationContext): Prom
 
   if (allItems.length > 0) {
     const finalResult = await processN8nObjectItems(allItems, targetFormat, options);
-    returnData.push({
-      json: finalResult as any,
-    });
+    // Use formatOutputItem to handle wrapping based on user preferences
+    const outputItem = formatOutputItem(finalResult, targetFormat, params.outputField, params.wrapOutput, params.outputFieldName);
+    if (Array.isArray(outputItem)) {
+      returnData.push(...outputItem);
+    } else {
+      returnData.push(outputItem);
+    }
   } else {
     // Handle empty case
     const emptyResult = getEmptyResultForFormat(targetFormat);
-    returnData.push({
-      json: emptyResult as any,
-    });
+    // Use formatOutputItem to handle wrapping based on user preferences
+    const outputItem = formatOutputItem(emptyResult, targetFormat, params.outputField, params.wrapOutput, params.outputFieldName);
+    if (Array.isArray(outputItem)) {
+      returnData.push(...outputItem);
+    } else {
+      returnData.push(outputItem);
+    }
   }
 
   return [returnData];
@@ -195,7 +218,7 @@ export async function handleRegularConversion(context: OperationContext): Promis
     const result = await convertData(inputData, params.sourceFormat, params.targetFormat, options);
 
     // Format the output
-    const outputItem = formatOutputItem(result, params.targetFormat, params.outputField);
+    const outputItem = formatOutputItem(result, params.targetFormat, params.outputField, params.wrapOutput, params.outputFieldName);
     if (Array.isArray(outputItem)) {
       returnData.push(...outputItem);
     } else {
@@ -517,16 +540,35 @@ function extractInputData(params: any, item: INodeExecutionData, executeFunction
   }
 }
 
-export function formatOutputItem(result: any, targetFormat: FormatType, outputField: string): INodeExecutionData | INodeExecutionData[] {
-  // For n8nObject format with arrays, return multiple execution data items
+export function formatOutputItem(result: any, targetFormat: FormatType, outputField: string, wrapOutput: boolean = true, outputFieldName: string = 'convertedData'): INodeExecutionData | INodeExecutionData[] {
+  // If wrapping is disabled, return data directly for all formats
+  if (!wrapOutput) {
+    // For n8nObject format with arrays, return multiple execution data items
+    if (targetFormat === 'n8nObject' && Array.isArray(result)) {
+      return result.map(item => ({
+        json: item as any,
+      }));
+    }
+    // For all other formats, return data directly
+    return {
+      json: result as any,
+    };
+  }
+
+  // If wrapping is enabled, wrap ALL formats in the outputFieldName
+  // For n8nObject format with arrays, wrap each item
   if (targetFormat === 'n8nObject' && Array.isArray(result)) {
     return result.map(item => ({
-      json: item as any,
+      json: {
+        [outputFieldName]: item
+      } as any,
     }));
   }
 
-  // For other formats, return data directly without any wrapping
+  // For all formats (including n8nObject single items), wrap in the outputFieldName
   return {
-    json: result as any,
+    json: {
+      [outputFieldName]: result
+    } as any,
   };
 }

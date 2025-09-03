@@ -435,6 +435,21 @@ export const PARAMETER_DEFINITIONS = {
     type: 'string' as const,
     defaultValue: '',
   } as ParameterDefinition<string>,
+
+  // Output wrapping parameters
+  wrapOutput: {
+    name: 'wrapOutput',
+    type: 'boolean' as const,
+    defaultValue: true,
+  } as ParameterDefinition<boolean>,
+
+  outputFieldName: {
+    name: 'outputFieldName',
+    type: 'string' as const,
+    defaultValue: 'convertedData',
+    minLength: 1,
+    maxLength: 100,
+  } as ParameterDefinition<string>,
 };
 
 /**
@@ -457,6 +472,8 @@ export function extractReplaceParameters(executeFunctions: IExecuteFunctions, it
     captionText: PARAMETER_DEFINITIONS.captionText,
     tableSelector: PARAMETER_DEFINITIONS.tableSelector,
     elementSelector: PARAMETER_DEFINITIONS.elementSelector,
+    wrapOutput: PARAMETER_DEFINITIONS.wrapOutput,
+    outputFieldName: PARAMETER_DEFINITIONS.outputFieldName,
   });
 
   return {
@@ -473,6 +490,8 @@ export function extractReplaceParameters(executeFunctions: IExecuteFunctions, it
     captionText: params.captionText.value as string,
     tableSelector: params.tableSelector.value as string,
     elementSelector: params.elementSelector.value as string,
+    wrapOutput: params.wrapOutput.value as boolean,
+    outputFieldName: params.outputFieldName.value as string,
   };
 }
 
@@ -506,6 +525,8 @@ export function extractStyleParameters(executeFunctions: IExecuteFunctions, item
     rowTextAlign: PARAMETER_DEFINITIONS.rowTextAlign,
     cellTextAlign: PARAMETER_DEFINITIONS.cellTextAlign,
     outputField: { ...PARAMETER_DEFINITIONS.outputField, defaultValue: 'styledHtml' },
+    wrapOutput: PARAMETER_DEFINITIONS.wrapOutput,
+    outputFieldName: PARAMETER_DEFINITIONS.outputFieldName,
   });
 
   return {
@@ -528,6 +549,8 @@ export function extractStyleParameters(executeFunctions: IExecuteFunctions, item
     rowTextAlign: params.rowTextAlign.value as string,
     cellTextAlign: params.cellTextAlign.value as string,
     outputField: params.outputField.value as string,
+    wrapOutput: params.wrapOutput.value as boolean,
+    outputFieldName: params.outputFieldName.value as string,
   };
 }
 
@@ -556,6 +579,8 @@ export function extractConversionParameters(executeFunctions: IExecuteFunctions,
     sortByField: PARAMETER_DEFINITIONS.sortByField,
     sortOrder: PARAMETER_DEFINITIONS.sortOrder,
     fields: PARAMETER_DEFINITIONS.fields,
+    wrapOutput: PARAMETER_DEFINITIONS.wrapOutput,
+    outputFieldName: PARAMETER_DEFINITIONS.outputFieldName,
   });
 
   return {
@@ -577,6 +602,8 @@ export function extractConversionParameters(executeFunctions: IExecuteFunctions,
     sortByField: params.sortByField.value as string,
     sortOrder: params.sortOrder.value as 'ascending' | 'descending',
     fields: params.fields.value as string,
+    wrapOutput: params.wrapOutput.value as boolean,
+    outputFieldName: params.outputFieldName.value as string,
   };
 }
 
@@ -590,6 +617,8 @@ export function extractN8nObjectParameters(executeFunctions: IExecuteFunctions, 
   let outputField = 'convertedData';
   let includeTableHeaders = true;
   let prettyPrint = false;
+  let wrapOutput = true;
+  let outputFieldName = 'convertedData';
 
   if (targetFormat === 'html') {
     try {
@@ -604,6 +633,16 @@ export function extractN8nObjectParameters(executeFunctions: IExecuteFunctions, 
     }
   }
 
+  // Extract wrapping parameters for all target formats
+  try {
+    const wrapOutputParam = extractor.extractParameter(PARAMETER_DEFINITIONS.wrapOutput);
+    const outputFieldNameParam = extractor.extractParameter(PARAMETER_DEFINITIONS.outputFieldName);
+    wrapOutput = wrapOutputParam.value as boolean;
+    outputFieldName = outputFieldNameParam.value as string;
+  } catch (error) {
+    // Use defaults if parameters not found
+  }
+
   const multipleItems = false; // Default to false for n8nObject source format
   const csvDelimiter = targetFormat === 'csv' ? executeFunctions.getNodeParameter('csvDelimiterOutput', 0, ',') as string : ',';
 
@@ -614,5 +653,7 @@ export function extractN8nObjectParameters(executeFunctions: IExecuteFunctions, 
     prettyPrint,
     multipleItems,
     csvDelimiter,
+    wrapOutput,
+    outputFieldName,
   };
 }

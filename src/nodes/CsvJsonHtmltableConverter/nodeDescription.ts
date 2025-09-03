@@ -808,5 +808,25 @@ export const nodeDescription: INodeTypeDescription = {
         },
       },
     },
+    // Output Wrapping Options
+    {
+      displayName: 'Wrap Output',
+      name: 'wrapOutput',
+      type: 'boolean',
+      default: true,
+      description: 'Whether to wrap the output in a specified field. When enabled, the result will be placed under the specified field name. When disabled, the result is returned directly.',
+    },
+    {
+      displayName: 'Output Field Name',
+      name: 'outputFieldName',
+      type: 'string',
+      default: 'convertedData',
+      description: 'The name of the field to wrap the output in when "Wrap Output" is enabled.',
+      displayOptions: {
+        show: {
+          wrapOutput: [true],
+        },
+      },
+    },
   ],
 };
