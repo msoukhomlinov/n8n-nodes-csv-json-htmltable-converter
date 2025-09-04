@@ -1,11 +1,11 @@
 import * as cheerio from 'cheerio';
 import * as Papa from 'papaparse';
-import * as minifyHtml from '@minify-html/node';
+// Removed @minify-html/node import - using simpleHtmlMinify instead
 import type { ConversionOptions, TableData, FormatType } from '../types';
 import {
   DEFAULT_INCLUDE_HEADERS,
   DEFAULT_PRETTY_PRINT,
-  MINIFY_OPTIONS,
+  simpleHtmlMinify,
 } from './constants';
 import { debug, debugSample } from './debug';
 import { getPresetSelectorsLegacy, findTablesAfterElement } from './tableSelectors';
@@ -632,7 +632,7 @@ export async function htmlToHtml(html: string, options: ConversionOptions): Prom
 
   // Apply minification if pretty print is disabled
   if (!prettyPrint) {
-    output = minifyHtml.minify(Buffer.from(output), MINIFY_OPTIONS).toString();
+    output = simpleHtmlMinify(output);
   }
 
   return output;

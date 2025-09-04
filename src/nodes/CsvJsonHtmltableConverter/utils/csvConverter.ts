@@ -1,11 +1,11 @@
 import * as Papa from 'papaparse';
-import * as minifyHtml from '@minify-html/node';
+// Removed @minify-html/node import - using simpleHtmlMinify instead
 import type { ConversionOptions, FormatType } from '../types';
 import {
   DEFAULT_CSV_DELIMITER,
   DEFAULT_INCLUDE_HEADERS,
   DEFAULT_PRETTY_PRINT,
-  MINIFY_OPTIONS,
+  simpleHtmlMinify,
 } from './constants';
 import { ValidationError } from './errors';
 import { escapeHtml } from './escapeHtml';
@@ -83,7 +83,7 @@ export async function csvToHtml(csv: string, options: ConversionOptions): Promis
   let html = parts.join('');
 
   if (!prettyPrint) {
-    html = minifyHtml.minify(Buffer.from(html), MINIFY_OPTIONS).toString();
+    html = simpleHtmlMinify(html);
   }
 
   return html;

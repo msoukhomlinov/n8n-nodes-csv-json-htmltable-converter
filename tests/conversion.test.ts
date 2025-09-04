@@ -131,4 +131,49 @@ describe('CSV, JSON and HTML conversions', () => {
     expect(outputItem.json.convertedData).toContain('<table>');
     expect(outputItem.json.convertedData).toContain('Alice');
   });
+
+  test('jsonToHtml with user input object should produce valid HTML', async () => {
+    // Reproduce the user's issue with the exact input data
+    const userInput = {"Unique Vendors Count": 944, "Products Count": 2644};
+    const result = await jsonToHtml(userInput, { includeTableHeaders: true });
+
+    // The result should be a proper HTML table, not mangled characters
+    expect(typeof result).toBe('string');
+    expect(result).toContain('<table>');
+    expect(result).toContain('<thead>');
+    expect(result).toContain('<tbody>');
+    expect(result).toContain('Unique Vendors Count');
+    expect(result).toContain('Products Count');
+    expect(result).toContain('944');
+    expect(result).toContain('2644');
+
+    // Should NOT contain the mangled pattern like &lt;<td>t<td>a<td>b<td>l<td>e<td>
+    expect(result).not.toContain('&lt;<td>');
+    expect(result).not.toContain('<td>&lt;');
+
+    console.log('Generated HTML:', result);
+  });
+
+  test('array of objects to HTML should work correctly', async () => {
+    // Test with array of objects (which is what collectN8nObjectItems would produce)
+    const allItems = [{"Unique Vendors Count": 944, "Products Count": 2644}];
+    const options = { includeTableHeaders: true, prettyPrint: false, multipleItems: false, csvDelimiter: ',' };
+
+    // Directly call jsonToHtml with array format
+    const result = await jsonToHtml(allItems, options);
+
+    console.log('Array to HTML result:', result);
+
+    // Check that result is a proper HTML string, not mangled
+    expect(typeof result).toBe('string');
+    expect(result).toContain('<table>');
+    expect(result).toContain('Unique Vendors Count');
+    expect(result).toContain('Products Count');
+    expect(result).toContain('944');
+    expect(result).toContain('2644');
+
+    // Should NOT contain the mangled pattern
+    expect(result).not.toContain('&lt;<td>');
+    expect(result).not.toContain('<td>&lt;');
+  });
 });

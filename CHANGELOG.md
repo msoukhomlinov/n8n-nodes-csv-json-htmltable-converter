@@ -2,6 +2,17 @@
 
 All notable changes to the n8n-nodes-csv-json-htmltable-converter package will be documented in this file.
 
+## [1.3.4] - 2025-09-03
+
+### Fixed
+- Fixed malformed HTML output by replacing aggressive minifier that removed closing tags
+- Removed `@minify-html/node` dependency, reducing package size
+- Enhanced input validation to prevent string iteration edge cases
+
+### Changed
+- Implemented safe whitespace-only HTML minification
+- HTML output now always preserves proper structure
+
 ## [1.3.3] - 2025-09-03
 
 ### Added

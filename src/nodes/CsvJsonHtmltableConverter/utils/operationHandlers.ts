@@ -11,7 +11,7 @@ import { validateInput } from './validateInput';
 import { replaceTable } from './replaceTable';
 import { applyTableStyles } from './applyTableStyles';
 import { debug } from './debug';
-import { MINIFY_OPTIONS } from './constants';
+import { simpleHtmlMinify } from './constants';
 import {
   extractReplaceParameters,
   extractStyleParameters,
@@ -444,7 +444,8 @@ function collectN8nObjectItems(items: INodeExecutionData[], executeFunctions: IE
           allItems.push(item as IDataObject);
         }
       }
-    } else if (!Array.isArray(inputData)) {
+    } else if (!Array.isArray(inputData) && typeof inputData === 'object' && inputData !== null) {
+      // Only add objects, not strings or primitives that might get iterated
       allItems.push(inputData as IDataObject);
     }
   }
@@ -454,14 +455,13 @@ function collectN8nObjectItems(items: INodeExecutionData[], executeFunctions: IE
 
 async function processN8nObjectItems(allItems: IDataObject[], targetFormat: FormatType, options: ConversionOptions): Promise<string> {
   const { jsonToHtml } = await import('./jsonConverter');
-  const minifyHtml = await import('@minify-html/node');
   const Papa = await import('papaparse');
 
   if (targetFormat === 'html') {
     const htmlTable = await jsonToHtml(allItems, options);
     return options.prettyPrint ?
       htmlTable :
-      minifyHtml.minify(Buffer.from(htmlTable), MINIFY_OPTIONS).toString();
+      simpleHtmlMinify(htmlTable);
   } else if (targetFormat === 'csv') {
     const result = Papa.unparse(allItems, {
       delimiter: options.csvDelimiter,

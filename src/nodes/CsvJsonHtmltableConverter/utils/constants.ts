@@ -1,5 +1,3 @@
-// Minifier options for @minify-html/node
-
 export const FORMAT_OPTIONS = [
   {
     name: 'HTML',
@@ -45,9 +43,12 @@ export const DEFAULT_CSV_DELIMITER = ',';
 export const DEFAULT_INCLUDE_HEADERS = true;
 export const DEFAULT_PRETTY_PRINT = false;
 export const DEFAULT_MULTIPLE_ITEMS = false;
-export const MINIFY_OPTIONS = {
-  minify_whitespace: true,
-  keep_comments: false,
-  keep_spaces_between_attributes: false,
-  keep_html_and_head_opening_tags: false,
-};
+// Simple regex-based minification that only removes unnecessary whitespace
+// This is safer than aggressive minifiers that can break HTML structure
+export function simpleHtmlMinify(html: string): string {
+  return html
+    // Remove whitespace between tags
+    .replace(/>\s+</g, '><')
+    // Remove leading/trailing whitespace
+    .trim();
+}

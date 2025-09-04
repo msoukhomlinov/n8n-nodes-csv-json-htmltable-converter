@@ -1,7 +1,6 @@
 import * as cheerio from 'cheerio';
 import type { ConversionOptions } from '../types';
-import * as minifyHtml from '@minify-html/node';
-import { DEFAULT_PRETTY_PRINT, MINIFY_OPTIONS } from './constants';
+import { DEFAULT_PRETTY_PRINT, simpleHtmlMinify } from './constants';
 import { debug, debugSample } from './debug';
 import { ConversionError, ValidationError } from './errors';
 import { getPresetSelectorsLegacy } from './tableSelectors';
@@ -215,9 +214,7 @@ export async function replaceTable(
 
     // Apply minification if pretty print is disabled
     if (!prettyPrint) {
-      result = minifyHtml
-        .minify(Buffer.from(result), MINIFY_OPTIONS)
-        .toString();
+      result = simpleHtmlMinify(result);
       debugSample('replaceTable.ts', 'Updated HTML sample (minified)', result);
     }
 
