@@ -6,7 +6,77 @@ import { ConversionError, ValidationError } from './errors';
 import { getPresetSelectorsLegacy } from './tableSelectors';
 import type { TableUnderHeadingConfig, TableWithCaptionConfig } from '../types';
 import { sanitizeHtml, validateHtmlInput } from './htmlSanitizer';
-import { OptimizedTableFinder, DOMPerformanceMonitor } from './domOptimizer';
+import { DOMPerformanceMonitor } from './domOptimizer';
+
+/**
+ * Find table under heading using the main Cheerio instance
+ */
+function findTableUnderHeading($: cheerio.Root, headingLevel: number, headingText: string, tableIndex: number): cheerio.Element | null {
+  const headingSelector = `h${headingLevel}`;
+
+  // Find all matching headings
+  const headings = $(headingSelector).filter((_, heading) => {
+    const text = $(heading).text().trim();
+    return headingText === '' || text.toLowerCase().includes(headingText.toLowerCase());
+  });
+
+  // Process headings and find tables
+  for (let i = 0; i < headings.length; i++) {
+    const heading = headings[i];
+    const tablesAfterHeading = findTablesAfterElement($, heading);
+
+    if (tablesAfterHeading.length > tableIndex) {
+      return tablesAfterHeading[tableIndex];
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Find tables after a given element using the main Cheerio instance
+ */
+function findTablesAfterElement($: cheerio.Root, startElem: cheerio.Element): cheerio.Element[] {
+  const tables: cheerio.Element[] = [];
+  let foundStart = false;
+
+  // Use a more efficient traversal by getting all descendants at once
+  const allElements = $(startElem).parent().find('*');
+
+  allElements.each((_, element) => {
+    if (element === startElem) {
+      foundStart = true;
+      return;
+    }
+
+    if (foundStart && $(element).is('table')) {
+      tables.push(element);
+    }
+  });
+
+  return tables;
+}
+
+/**
+ * Find table with caption using the main Cheerio instance
+ */
+function findTableWithCaption($: cheerio.Root, captionText: string): cheerio.Element | null {
+  const tables = $('table');
+
+  for (let i = 0; i < tables.length; i++) {
+    const table = tables[i];
+    const caption = $(table).find('caption').first();
+
+    if (caption.length > 0) {
+      const captionContent = caption.text().trim();
+      if (captionText === '' || captionContent.toLowerCase().includes(captionText.toLowerCase())) {
+        return table;
+      }
+    }
+  }
+
+  return null;
+}
 
 
 /**
@@ -53,11 +123,10 @@ function findTable($: cheerio.Root, options: ConversionOptions): cheerio.Element
         });
       }
 
-      // Use optimized table finder
-      const finder = new OptimizedTableFinder($.html());
+      // Find table using the main $ instance (not a separate finder)
       const foundTable = DOMPerformanceMonitor.timeOperation(
         `findTableUnderHeading`,
-        () => finder.findTableUnderHeading(headingLevel, headingText, tableIndex - 1)
+        () => findTableUnderHeading($, headingLevel, headingText, tableIndex - 1)
       );
 
       if (foundTable) {
@@ -77,11 +146,10 @@ function findTable($: cheerio.Root, options: ConversionOptions): cheerio.Element
     const config: TableWithCaptionConfig = JSON.parse(tableSelector);
       const captionText = config.captionText;
 
-      // Use optimized table finder
-      const finder = new OptimizedTableFinder($.html());
+      // Find table using the main $ instance
       const foundTable = DOMPerformanceMonitor.timeOperation(
         `findTableWithCaption`,
-        () => finder.findTableWithCaption(captionText)
+        () => findTableWithCaption($, captionText)
       );
 
       if (!foundTable) {
@@ -210,6 +278,7 @@ export async function replaceTable(
     // Get the updated HTML
     let result = $.root().html() || '';
 
+    debug('replaceTable.ts', `isFragment: ${isFragment}`);
     debugSample('replaceTable.ts', 'Updated HTML sample (pre-minify)', result);
 
     // Apply minification if pretty print is disabled

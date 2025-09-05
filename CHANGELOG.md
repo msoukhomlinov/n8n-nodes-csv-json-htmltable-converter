@@ -2,6 +2,22 @@
 
 All notable changes to the n8n-nodes-csv-json-htmltable-converter package will be documented in this file.
 
+
+## [1.3.5] - 2025-09-05
+
+### Fixed
+- Fixed expression evaluation priority issue where node ignored expressions like `{{ $('Split PMPC Data').item.json.PmpcContent }}` and only processed immediate previous node data
+- **Fixed Replace operation n8nObject validation error**: Added 'n8nObject' to allowed values for replacementFormat parameter. Now users can select n8nObject as replacement content format and it will be auto-converted to HTML table as expected
+- **Fixed table replacement not working for "Table Under Heading" and "Table With Caption" presets**: Resolved DOM element reference issue where OptimizedTableFinder created separate Cheerio instances, preventing table replacement from working
+- Removed redundant TypeScript interfaces duplicating parameter extraction return types (~40 lines reduction)
+- Simplified error handling in main node file
+
+### Changed
+- Updated extractInputData and collectN8nObjectItems to use standard n8n `getNodeParameter()` pattern for automatic expression resolution
+- Improved type safety with `ReturnType<typeof extract*Parameters>`
+- **Data Manipulation now available for Replace operations:** 'Show Data Manipulation' option and related sorting/filtering parameters are now accessible when using Replace operations, allowing users to manipulate replacement content data before table replacement
+
+
 ## [1.3.4] - 2025-09-03
 
 ### Fixed

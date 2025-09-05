@@ -49,11 +49,11 @@ export class CsvJsonHtmltableConverter implements INodeType {
           throw new NodeOperationError(this.getNode(), `Unknown operation: ${operation}`);
       }
     } catch (error) {
-      // Clean up error messages
-      if (error.message.includes('Error: ')) {
-        throw new NodeOperationError(this.getNode(), error.message.replace('Error: ', ''));
+      // Re-throw as NodeOperationError if not already one
+      if (error instanceof NodeOperationError) {
+        throw error;
       }
-      throw new NodeOperationError(this.getNode(), error);
+      throw new NodeOperationError(this.getNode(), error.message || error);
     }
   }
 }

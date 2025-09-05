@@ -208,7 +208,7 @@ export const PARAMETER_DEFINITIONS = {
     name: 'replacementFormat',
     type: 'enum' as const,
     required: true,
-    enumValues: ['html', 'csv', 'json'] as const,
+    enumValues: ['html', 'csv', 'json', 'n8nObject'] as const,
   } as ParameterDefinition<FormatType>,
 
   replacementContent: {
@@ -474,6 +474,9 @@ export function extractReplaceParameters(executeFunctions: IExecuteFunctions, it
     elementSelector: PARAMETER_DEFINITIONS.elementSelector,
     wrapOutput: PARAMETER_DEFINITIONS.wrapOutput,
     outputFieldName: PARAMETER_DEFINITIONS.outputFieldName,
+    sortByField: PARAMETER_DEFINITIONS.sortByField,
+    sortOrder: PARAMETER_DEFINITIONS.sortOrder,
+    fields: PARAMETER_DEFINITIONS.fields,
   });
 
   return {
@@ -492,6 +495,9 @@ export function extractReplaceParameters(executeFunctions: IExecuteFunctions, it
     elementSelector: params.elementSelector.value as string,
     wrapOutput: params.wrapOutput.value as boolean,
     outputFieldName: params.outputFieldName.value as string,
+    sortByField: params.sortByField.value as string,
+    sortOrder: params.sortOrder.value as 'ascending' | 'descending',
+    fields: params.fields.value as string,
   };
 }
 

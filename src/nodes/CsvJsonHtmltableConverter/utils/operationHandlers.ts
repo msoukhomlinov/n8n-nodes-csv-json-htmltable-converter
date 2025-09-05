@@ -5,7 +5,7 @@
 
 import type { IExecuteFunctions, INodeExecutionData, IDataObject } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import type { FormatType, ConversionOptions, SelectorMode, TablePreset } from '../types';
+import type { FormatType, ConversionOptions } from '../types';
 import { convertData } from './convertData';
 import { validateInput } from './validateInput';
 import { replaceTable } from './replaceTable';
@@ -19,82 +19,6 @@ import {
   extractN8nObjectParameters
 } from './parameterHandler';
 
-// Type-safe parameter interfaces
-interface ReplaceParams {
-  sourceHtml: string;
-  replacementFormat: FormatType;
-  replacementContent: string;
-  outputField: string;
-  prettyPrint: boolean;
-  selectorMode: SelectorMode;
-  tablePreset: TablePreset;
-  headingLevel: number;
-  headingText: string;
-  tableIndex: number;
-  captionText: string;
-  tableSelector: string;
-  elementSelector: string;
-  wrapOutput: boolean;
-  outputFieldName: string;
-}
-
-interface StyleParams {
-  htmlInput: string;
-  tableClass: string;
-  tableStyle: string;
-  rowStyle: string;
-  cellStyle: string;
-  zebraStriping: boolean;
-  evenRowColor: string;
-  oddRowColor: string;
-  borderStyle: string;
-  borderWidth: number;
-  captionStyle: string;
-  captionPosition: string;
-  borderColor: string;
-  borderRadius: string;
-  borderCollapse: string;
-  tableTextAlign: string;
-  rowTextAlign: string;
-  cellTextAlign: string;
-  outputField: string;
-  wrapOutput: boolean;
-  outputFieldName: string;
-}
-
-interface ConversionParams {
-  sourceFormat: FormatType;
-  targetFormat: FormatType;
-  outputField: string;
-  csvDelimiterInput: string;
-  csvDelimiterOutput: string;
-  selectorMode: SelectorMode;
-  tablePreset: TablePreset;
-  headingLevel: number;
-  headingText: string;
-  tableIndex: number;
-  tableSelector: string;
-  elementSelector: string;
-  multipleItems: boolean;
-  includeTableHeaders: boolean;
-  prettyPrint: boolean;
-  sortByField: string;
-  sortOrder: 'ascending' | 'descending';
-  fields: string;
-  wrapOutput: boolean;
-  outputFieldName: string;
-}
-
-interface N8nObjectParams {
-  targetFormat: FormatType;
-  outputField: string;
-  includeTableHeaders: boolean;
-  prettyPrint: boolean;
-  multipleItems: boolean;
-  csvDelimiter: string;
-  wrapOutput: boolean;
-  outputFieldName: string;
-}
 
 
 export interface OperationContext {
@@ -232,7 +156,7 @@ export async function handleRegularConversion(context: OperationContext): Promis
 
 
 // Option building functions
-function buildReplaceOptions(params: ReplaceParams): ConversionOptions {
+function buildReplaceOptions(params: ReturnType<typeof extractReplaceParameters>): ConversionOptions {
   const options: ConversionOptions = {
     prettyPrint: params.prettyPrint,
     selectorMode: params.selectorMode,
@@ -262,7 +186,7 @@ function buildReplaceOptions(params: ReplaceParams): ConversionOptions {
   return options;
 }
 
-function buildStyleOptions(params: StyleParams): ConversionOptions {
+function buildStyleOptions(params: ReturnType<typeof extractStyleParameters>): ConversionOptions {
   return {
     tableClass: params.tableClass,
     tableStyle: params.tableStyle,
@@ -284,7 +208,7 @@ function buildStyleOptions(params: StyleParams): ConversionOptions {
   };
 }
 
-function buildN8nObjectOptions(params: N8nObjectParams): ConversionOptions {
+function buildN8nObjectOptions(params: ReturnType<typeof extractN8nObjectParameters>): ConversionOptions {
   return {
     includeTableHeaders: params.includeTableHeaders,
     prettyPrint: params.prettyPrint,
@@ -293,7 +217,7 @@ function buildN8nObjectOptions(params: N8nObjectParams): ConversionOptions {
   };
 }
 
-function buildConversionOptions(params: ConversionParams): ConversionOptions {
+function buildConversionOptions(params: ReturnType<typeof extractConversionParameters>): ConversionOptions {
   const options: ConversionOptions = {};
 
   // Set CSV delimiter based on source and target format
@@ -370,6 +294,9 @@ async function convertReplacementContent(params: any, options: ConversionOptions
   const conversionOptions: ConversionOptions = {
     prettyPrint: params.prettyPrint,
     includeTableHeaders: true,
+    sortByField: params.sortByField,
+    sortOrder: params.sortOrder,
+    fields: params.fields,
   };
 
   if (params.replacementFormat === 'csv') {
@@ -385,55 +312,37 @@ function collectN8nObjectItems(items: INodeExecutionData[], executeFunctions: IE
   for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
     let inputData: object;
 
-    // Check if we're getting input from a previous node's n8nObject output
-    const isInputFromPreviousNodeObject = Object.keys(items[itemIndex].json).length > 0 &&
-      ((items[itemIndex].json.convertedData !== undefined &&
-        typeof items[itemIndex].json.convertedData === 'object') ||
-        Object.keys(items[itemIndex].json).filter(key => !key.startsWith('__')).length > 0);
+    // Get the resolved inputData parameter (expressions are automatically resolved)
+    const explicitInputData = executeFunctions.getNodeParameter('inputData', itemIndex, '');
 
-    // Handle cases where input data is passed directly from another node
-    const expressionNodeInput = (rawInput: unknown): boolean => {
-      // Check if rawInput looks like it came from an expression that couldn't serialize properly
-      return typeof rawInput === 'string' &&
-        rawInput.trim() !== '' &&
-        Object.keys(items[itemIndex].json).length > 0 &&
-        // Try to parse as JSON, if it fails but we have other data, likely from expression
-        (() => {
-          try {
-            JSON.parse(rawInput);
-            return false; // If it parses, it's valid JSON, not an expression issue
-          } catch {
-            return true; // If it doesn't parse and we have other data, likely expression
-          }
-        })();
-    };
-
-    // For n8nObject from previous node or passed via expression
-    if (isInputFromPreviousNodeObject || expressionNodeInput(executeFunctions.getNodeParameter('inputData', itemIndex))) {
-      if (items[itemIndex].json.convertedData !== undefined) {
-        inputData = items[itemIndex].json.convertedData as object;
-      } else {
-        const filteredData: IDataObject = {};
-        for (const key of Object.keys(items[itemIndex].json)) {
-          if (!key.startsWith('__')) {
-            filteredData[key] = items[itemIndex].json[key];
-          }
+    // If user provided explicit input data, use it
+    if (explicitInputData && explicitInputData !== '') {
+      if (typeof explicitInputData === 'string') {
+        try {
+          inputData = JSON.parse(explicitInputData);
+        } catch (error) {
+          inputData = { value: explicitInputData };
         }
-        inputData = filteredData;
+      } else {
+        inputData = explicitInputData as object;
       }
     } else {
-      // For n8nObject from inputData parameter
-      const rawInput = executeFunctions.getNodeParameter('inputData', itemIndex);
-      if (typeof rawInput === 'string' && rawInput.trim() !== '') {
-        try {
-          inputData = JSON.parse(rawInput);
-        } catch (error) {
-          inputData = { value: rawInput };
+      // No explicit input provided, fall back to previous node data
+      const item = items[itemIndex];
+      if (item.json && Object.keys(item.json).length > 0) {
+        if (item.json.convertedData !== undefined) {
+          inputData = item.json.convertedData as object;
+        } else {
+          const filteredData: IDataObject = {};
+          for (const key of Object.keys(item.json)) {
+            if (!key.startsWith('__')) {
+              filteredData[key] = item.json[key];
+            }
+          }
+          inputData = filteredData;
         }
-      } else if (rawInput === undefined || rawInput === null) {
-        inputData = {};
       } else {
-        inputData = rawInput as object;
+        inputData = {};
       }
     }
 
@@ -486,31 +395,30 @@ function getEmptyResultForFormat(targetFormat: FormatType): string {
 }
 
 function extractInputData(params: any, item: INodeExecutionData, executeFunctions: IExecuteFunctions, itemIndex: number): string | object {
-  // Check if we're getting input from a previous node's n8nObject output
-  const isInputFromPreviousNodeObject = params.sourceFormat === 'n8nObject' &&
-    Object.keys(item.json).length > 0 &&
-    ((item.json.convertedData !== undefined &&
-      typeof item.json.convertedData === 'object') ||
-      Object.keys(item.json).filter(key => !key.startsWith('__')).length > 0);
+  // Get the resolved inputData parameter (expressions are automatically resolved)
+  const inputData = executeFunctions.getNodeParameter('inputData', itemIndex, '');
 
-  // Handle cases where input data is passed directly from another node
-  const expressionNodeInput = (rawInput: unknown): boolean => {
-    // Check if rawInput looks like it came from an expression that couldn't serialize properly
-    return typeof rawInput === 'string' &&
-      rawInput.trim() !== '' &&
-      Object.keys(item.json).length > 0 &&
-      // Try to parse as JSON, if it fails but we have other data, likely from expression
-      (() => {
+  // If user provided explicit input data, use it
+  if (inputData && inputData !== '') {
+    if (params.sourceFormat === 'n8nObject') {
+      // For n8nObject, try to parse as JSON if it's a string
+      if (typeof inputData === 'string') {
         try {
-          JSON.parse(rawInput);
-          return false; // If it parses, it's valid JSON, not an expression issue
-        } catch {
-          return true; // If it doesn't parse and we have other data, likely expression
+          return JSON.parse(inputData);
+        } catch (error) {
+          return { value: inputData };
         }
-      })();
-  };
+      } else {
+        return inputData as object;
+      }
+    } else {
+      // For other formats (HTML, CSV, JSON), return as string
+      return inputData as string;
+    }
+  }
 
-  if (isInputFromPreviousNodeObject || (params.sourceFormat === 'n8nObject' && expressionNodeInput(executeFunctions.getNodeParameter('inputData', itemIndex)))) {
+  // No explicit input provided, fall back to previous node data for n8nObject format
+  if (params.sourceFormat === 'n8nObject' && item.json && Object.keys(item.json).length > 0) {
     if (item.json.convertedData !== undefined) {
       return item.json.convertedData as object;
     } else {
@@ -522,22 +430,10 @@ function extractInputData(params: any, item: INodeExecutionData, executeFunction
       }
       return filteredData;
     }
-  } else if (params.sourceFormat === 'n8nObject') {
-    const rawInput = executeFunctions.getNodeParameter('inputData', itemIndex);
-    if (typeof rawInput === 'string' && rawInput.trim() !== '') {
-      try {
-        return JSON.parse(rawInput);
-      } catch (error) {
-        return { value: rawInput };
-      }
-    } else if (rawInput === undefined || rawInput === null) {
-      return {};
-    } else {
-      return rawInput as object;
-    }
-  } else {
-    return executeFunctions.getNodeParameter('inputData', itemIndex) as string;
   }
+
+  // Return empty value for the format
+  return params.sourceFormat === 'n8nObject' ? {} : '';
 }
 
 export function formatOutputItem(result: any, targetFormat: FormatType, outputField: string, wrapOutput: boolean = true, outputFieldName: string = 'convertedData'): INodeExecutionData | INodeExecutionData[] {

@@ -761,7 +761,7 @@ export const nodeDescription: INodeTypeDescription = {
       description: 'Show data manipulation options for sorting, filtering, and reordering fields',
       displayOptions: {
         show: {
-          operation: ['convert'],
+          operation: ['convert', 'replace'],
         },
       },
     },
@@ -773,7 +773,7 @@ export const nodeDescription: INodeTypeDescription = {
       description: 'Field name to sort by. Field name matching is case-insensitive. Leave empty for no sorting.',
       displayOptions: {
         show: {
-          operation: ['convert'],
+          operation: ['convert', 'replace'],
           showDataManipulation: [true],
         },
       },
@@ -790,7 +790,7 @@ export const nodeDescription: INodeTypeDescription = {
       description: 'Sort order for the specified field',
       displayOptions: {
         show: {
-          operation: ['convert'],
+          operation: ['convert', 'replace'],
           showDataManipulation: [true],
         },
       },
@@ -803,7 +803,7 @@ export const nodeDescription: INodeTypeDescription = {
       description: 'Comma-separated list of field names to include and reorder. If specified, only these fields will be included in the output, in the order listed. Field names containing spaces should be wrapped in quotation marks (e.g., "field name", "another field", simple_field). Field name matching is case-insensitive, but original casing is preserved in output. Leave empty to include all fields in their original order.',
       displayOptions: {
         show: {
-          operation: ['convert'],
+          operation: ['convert', 'replace'],
           showDataManipulation: [true],
         },
       },

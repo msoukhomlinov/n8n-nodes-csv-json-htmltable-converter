@@ -123,6 +123,9 @@ describe('extractReplaceParameters', () => {
       elementSelector: 'body',
       wrapOutput: true,
       outputFieldName: 'convertedData',
+      sortByField: '',
+      sortOrder: 'ascending',
+      fields: '',
     };
 
     mockExecuteFunctions.getNodeParameter.mockImplementation((paramName: string) => {
@@ -138,6 +141,44 @@ describe('extractReplaceParameters', () => {
     expect(result.prettyPrint).toBe(mockParams.prettyPrint);
     expect(result.selectorMode).toBe(mockParams.selectorMode);
     expect(result.tablePreset).toBe(mockParams.tablePreset);
+  });
+
+  it('should accept n8nObject as replacementFormat', () => {
+    const mockParams = {
+      sourceHtml: '<table><tr><td>test</td></tr></table>',
+      replacementFormat: 'n8nObject' as FormatType,
+      replacementContent: '[{"name": "John", "age": 30}]',
+      outputField: 'result',
+      prettyPrint: false,
+      selectorMode: 'simple',
+      tablePreset: 'first-table',
+      headingLevel: 1,
+      headingText: '',
+      tableIndex: 1,
+      captionText: '',
+      tableSelector: 'table',
+      elementSelector: 'body',
+      wrapOutput: true,
+      outputFieldName: 'convertedData',
+      sortByField: '',
+      sortOrder: 'ascending',
+      fields: '',
+    };
+
+    mockExecuteFunctions.getNodeParameter.mockImplementation((paramName: string) => {
+      if (mockParams.hasOwnProperty(paramName)) {
+        return mockParams[paramName as keyof typeof mockParams];
+      }
+      // Return appropriate defaults for missing parameters
+      if (paramName === 'prettyPrint') return false;
+      if (paramName === 'wrapOutput') return true;
+      return '';
+    });
+
+    const result = extractReplaceParameters(mockExecuteFunctions);
+
+    expect(result.replacementFormat).toBe('n8nObject');
+    expect(result.replacementContent).toBe(mockParams.replacementContent);
   });
 });
 
