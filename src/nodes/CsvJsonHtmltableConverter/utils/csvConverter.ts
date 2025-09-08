@@ -1,4 +1,5 @@
 import * as Papa from 'papaparse';
+import * as cheerio from 'cheerio';
 // Removed @minify-html/node import - using simpleHtmlMinify instead
 import type { ConversionOptions, FormatType } from '../types';
 import {
@@ -8,7 +9,6 @@ import {
   simpleHtmlMinify,
 } from './constants';
 import { ValidationError } from './errors';
-import { escapeHtml } from './escapeHtml';
 
 /**
  * Parses CSV data into a structured format
@@ -56,33 +56,42 @@ export async function csvToHtml(csv: string, options: ConversionOptions): Promis
   const result = parseCSV(csv, { ...options, includeTableHeaders: false }, 'html'); // We'll handle headers manually
   const prettyPrint = options.prettyPrint !== undefined ? options.prettyPrint : DEFAULT_PRETTY_PRINT;
 
-  const indentation = prettyPrint ? '\n  ' : '';
+  const $ = cheerio.load('');
+  const table = $('<table></table>');
   let dataRows = result.data as string[][];
-  const parts: string[] = ['<table>'];
 
+  // Handle headers
   if (includeHeaders && dataRows.length > 0) {
     const headers = dataRows[0];
-    parts.push(`${indentation}<thead>`, `${indentation}  <tr>`);
-    for (const header of headers) {
-      parts.push(`${indentation}    <th>${escapeHtml(header)}</th>`);
-    }
-    parts.push(`${indentation}  </tr>`, `${indentation}</thead>`);
+    const thead = $('<thead></thead>');
+    const headerRow = $('<tr></tr>').appendTo(thead);
+
+    headers.forEach(header => {
+      $('<th></th>').text(header).appendTo(headerRow);
+    });
+
+    table.append(thead);
     dataRows = dataRows.slice(1);
   }
 
-  parts.push(`${indentation}<tbody>`);
-  for (const row of dataRows) {
-    parts.push(`${indentation}  <tr>`);
-    for (const cell of row) {
-      parts.push(`${indentation}    <td>${escapeHtml(cell)}</td>`);
-    }
-    parts.push(`${indentation}  </tr>`);
-  }
-  parts.push(`${indentation}</tbody>`, prettyPrint ? '\n</table>' : '</table>');
+  // Handle data rows
+  const tbody = $('<tbody></tbody>');
+  dataRows.forEach(row => {
+    const dataRow = $('<tr></tr>').appendTo(tbody);
+    row.forEach(cell => {
+      $('<td></td>').text(cell).appendTo(dataRow);
+    });
+  });
+  table.append(tbody);
 
-  let html = parts.join('');
+  // Format output based on pretty print option
+  let html = table.toString();
 
-  if (!prettyPrint) {
+  if (prettyPrint) {
+    // For pretty print, use cheerio's built-in formatting
+    html = $.html(table);
+  } else {
+    // For minified output, use the existing minifier
     html = simpleHtmlMinify(html);
   }
 

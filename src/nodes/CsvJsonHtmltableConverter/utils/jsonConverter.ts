@@ -1,4 +1,5 @@
-import { json2csv } from 'json-2-csv';
+import * as Papa from 'papaparse';
+import * as cheerio from 'cheerio';
 // Removed @minify-html/node import - using simpleHtmlMinify instead
 import type { ConversionOptions, FormatType } from '../types';
 import {
@@ -8,7 +9,6 @@ import {
   simpleHtmlMinify,
 } from './constants';
 import { ConversionError, ValidationError } from './errors';
-import { escapeHtml } from './escapeHtml';
 import { safeJsonParse } from './safeJson';
 
 /**
@@ -23,6 +23,79 @@ function parseJSON(jsonStr: string, target: FormatType) {
       target,
     });
   }
+}
+
+/**
+ * Utility function to create table header using Cheerio
+ */
+function createTableHeader(headers: string[], $: any): any {
+  const thead = $('<thead></thead>');
+  const row = $('<tr></tr>').appendTo(thead);
+
+  headers.forEach(header => {
+    $('<th></th>').text(header).appendTo(row);
+  });
+
+  return thead;
+}
+
+/**
+ * Utility function to create table body for array of objects using Cheerio
+ */
+function createTableBody(data: Record<string, unknown>[], headers: string[], $: any): any {
+  const tbody = $('<tbody></tbody>');
+
+  data.forEach(rowData => {
+    const row = $('<tr></tr>').appendTo(tbody);
+    headers.forEach(header => {
+      const cellValue = rowData[header] ?? '';
+      $('<td></td>').text(String(cellValue)).appendTo(row);
+    });
+  });
+
+  return tbody;
+}
+
+/**
+ * Utility function to create table body for array of arrays using Cheerio
+ */
+function createTableBodyFromArrays(data: unknown[][], $: any): any {
+  const tbody = $('<tbody></tbody>');
+
+  data.forEach(rowData => {
+    const row = $('<tr></tr>').appendTo(tbody);
+    rowData.forEach(cell => {
+      $('<td></td>').text(String(cell)).appendTo(row);
+    });
+  });
+
+  return tbody;
+}
+
+/**
+ * Utility function to create key-value table body with nested object flattening using Cheerio
+ */
+function createKeyValueTableBody(data: Record<string, unknown>, $: any): any {
+  const tbody = $('<tbody></tbody>');
+
+  for (const [key, value] of Object.entries(data)) {
+    // Handle nested objects (maintain our existing nested object flattening logic)
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      // Iterate through the nested object's properties
+      for (const [nestedKey, nestedValue] of Object.entries(value as Record<string, unknown>)) {
+        const row = $('<tr></tr>').appendTo(tbody);
+        $('<td></td>').text(nestedKey).appendTo(row);
+        $('<td></td>').text(String(nestedValue)).appendTo(row);
+      }
+    } else {
+      // For non-object values, display as normal
+      const row = $('<tr></tr>').appendTo(tbody);
+      $('<td></td>').text(key).appendTo(row);
+      $('<td></td>').text(String(value)).appendTo(row);
+    }
+  }
+
+  return tbody;
 }
 
 /**
@@ -42,13 +115,11 @@ export async function jsonToCsv(jsonStr: string, options: ConversionOptions): Pr
       typeof jsonData[0] === 'object' &&
       !Array.isArray(jsonData[0])
     ) {
-      const fields = Object.keys(jsonData[0]);
-      const optionsCsv = {
-        delimiter: { field: delimiter },
-        prependHeader: includeHeaders,
-        keys: fields,
-      };
-      return await json2csv(jsonData, optionsCsv);
+      return Papa.unparse(jsonData, {
+        delimiter: delimiter,
+        header: includeHeaders,
+        newline: '\n'
+      });
     }
 
     // For array of arrays, convert directly
@@ -121,10 +192,10 @@ export async function jsonToHtml(
   // Parse the input if it's a string, otherwise use as is
   const parsedData = typeof jsonData === 'string' ? parseJSON(jsonData, 'html') : jsonData;
 
-  const indentation = prettyPrint ? '\n  ' : '';
-  const parts: string[] = ['<table>'];
-
   try {
+    const $ = cheerio.load('');
+    const table = $('<table></table>');
+
     // Array of objects - most common case
     if (
       Array.isArray(parsedData) &&
@@ -135,59 +206,27 @@ export async function jsonToHtml(
       const headers = Object.keys(parsedData[0]);
 
       if (includeHeaders) {
-        parts.push(`${indentation}<thead>`, `${indentation}  <tr>`);
-        for (const header of headers) {
-          parts.push(`${indentation}    <th>${escapeHtml(header)}</th>`);
-        }
-        parts.push(`${indentation}  </tr>`, `${indentation}</thead>`);
+        const thead = createTableHeader(headers, $);
+        table.append(thead);
       }
 
-      parts.push(`${indentation}<tbody>`);
-      for (const row of parsedData) {
-        parts.push(`${indentation}  <tr>`);
-        for (const header of headers) {
-          const cellValue = (row as Record<string, unknown>)[header] ?? '';
-          parts.push(`${indentation}    <td>${escapeHtml(String(cellValue))}</td>`);
-        }
-        parts.push(`${indentation}  </tr>`);
-      }
-      parts.push(`${indentation}</tbody>`);
+      const tbody = createTableBody(parsedData as Record<string, unknown>[], headers, $);
+      table.append(tbody);
     }
     // Array of arrays
     else if (Array.isArray(parsedData) && parsedData.length > 0 && Array.isArray(parsedData[0])) {
-      parts.push(`${indentation}<tbody>`);
-      for (const row of parsedData as unknown[]) {
-        parts.push(`${indentation}  <tr>`);
-        for (const cell of row as unknown[]) {
-          parts.push(`${indentation}    <td>${escapeHtml(String(cell))}</td>`);
-        }
-        parts.push(`${indentation}  </tr>`);
-      }
-      parts.push(`${indentation}</tbody>`);
+      const tbody = createTableBodyFromArrays(parsedData as unknown[][], $);
+      table.append(tbody);
     }
     // Simple object
     else if (typeof parsedData === 'object' && parsedData !== null) {
       if (includeHeaders) {
-        parts.push(
-          `${indentation}<thead>`,
-          `${indentation}  <tr>`,
-          `${indentation}    <th>Key</th>`,
-          `${indentation}    <th>Value</th>`,
-          `${indentation}  </tr>`,
-          `${indentation}</thead>`,
-        );
+        const thead = createTableHeader(['Key', 'Value'], $);
+        table.append(thead);
       }
 
-      parts.push(`${indentation}<tbody>`);
-      for (const [key, value] of Object.entries(parsedData as Record<string, unknown>)) {
-        parts.push(
-          `${indentation}  <tr>`,
-          `${indentation}    <td>${escapeHtml(key)}</td>`,
-          `${indentation}    <td>${escapeHtml(String(value))}</td>`,
-          `${indentation}  </tr>`,
-        );
-      }
-      parts.push(`${indentation}</tbody>`);
+      const tbody = createKeyValueTableBody(parsedData as Record<string, unknown>, $);
+      table.append(tbody);
     } else {
       throw new ConversionError('Unsupported JSON structure for HTML conversion', {
         source: 'json',
@@ -195,10 +234,14 @@ export async function jsonToHtml(
       });
     }
 
-    parts.push(prettyPrint ? '\n</table>' : '</table>');
-    let html = parts.join('');
+    // Format output based on pretty print option
+    let html = table.toString();
 
-    if (!prettyPrint) {
+    if (prettyPrint) {
+      // For pretty print, we'll use cheerio's built-in formatting
+      html = $.html(table);
+    } else {
+      // For minified output, use the existing minifier
       html = simpleHtmlMinify(html);
     }
 

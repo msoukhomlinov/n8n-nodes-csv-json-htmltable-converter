@@ -38,7 +38,7 @@ export async function handleReplaceOperation(context: OperationContext): Promise
     const options = buildReplaceOptions(params);
 
     // Convert replacement content to HTML if needed
-    let htmlReplacementContent = params.replacementContent;
+    let htmlReplacementContent: string = params.replacementContent as string;
     if (params.replacementFormat !== 'html') {
       htmlReplacementContent = await convertReplacementContent(params, options);
     }
@@ -293,7 +293,7 @@ async function convertReplacementContent(params: any, options: ConversionOptions
   // Convert replacement content to HTML
   const conversionOptions: ConversionOptions = {
     prettyPrint: params.prettyPrint,
-    includeTableHeaders: true,
+    includeTableHeaders: params.includeTableHeaders,
     sortByField: params.sortByField,
     sortOrder: params.sortOrder,
     fields: params.fields,

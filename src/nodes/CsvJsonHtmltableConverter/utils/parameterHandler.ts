@@ -458,12 +458,40 @@ export const PARAMETER_DEFINITIONS = {
 export function extractReplaceParameters(executeFunctions: IExecuteFunctions, itemIndex: number = 0) {
   const extractor = new ParameterExtractor(executeFunctions, itemIndex);
 
+  // First extract replacementFormat to check if we need special handling
+  const replacementFormatParam = extractor.extractParameter(PARAMETER_DEFINITIONS.replacementFormat);
+  const replacementFormat = replacementFormatParam.value as FormatType;
+
+  // Extract replacementContent with special handling for n8nObject format
+  let replacementContent: string | object;
+  if (replacementFormat === 'n8nObject') {
+    // For n8nObject, bypass parameter validation and extract directly
+    const rawReplacementContent = executeFunctions.getNodeParameter('replacementContent', itemIndex, '');
+
+    if (typeof rawReplacementContent === 'string') {
+      // Try to parse as JSON if it's a string
+      try {
+        replacementContent = JSON.parse(rawReplacementContent);
+      } catch (error) {
+        // If it's not valid JSON, treat as a simple string value
+        replacementContent = { value: rawReplacementContent };
+      }
+    } else {
+      // If it's already an object, use it directly
+      replacementContent = rawReplacementContent as object;
+    }
+  } else {
+    // For other formats, use normal parameter validation
+    const replacementContentParam = extractor.extractParameter(PARAMETER_DEFINITIONS.replacementContent);
+    replacementContent = replacementContentParam.value as string;
+  }
+
+  // Extract all other parameters normally
   const params = extractor.extractParameters({
     sourceHtml: PARAMETER_DEFINITIONS.sourceHtml,
-    replacementFormat: PARAMETER_DEFINITIONS.replacementFormat,
-    replacementContent: PARAMETER_DEFINITIONS.replacementContent,
     outputField: PARAMETER_DEFINITIONS.outputField,
     prettyPrint: PARAMETER_DEFINITIONS.prettyPrint,
+    includeTableHeaders: PARAMETER_DEFINITIONS.includeTableHeaders,
     selectorMode: PARAMETER_DEFINITIONS.selectorMode,
     tablePreset: PARAMETER_DEFINITIONS.tablePreset,
     headingLevel: PARAMETER_DEFINITIONS.headingLevel,
@@ -481,10 +509,11 @@ export function extractReplaceParameters(executeFunctions: IExecuteFunctions, it
 
   return {
     sourceHtml: params.sourceHtml.value as string,
-    replacementFormat: params.replacementFormat.value as FormatType,
-    replacementContent: params.replacementContent.value as string,
+    replacementFormat,
+    replacementContent,
     outputField: params.outputField.value as string,
     prettyPrint: params.prettyPrint.value as boolean,
+    includeTableHeaders: params.includeTableHeaders.value as boolean,
     selectorMode: params.selectorMode.value as SelectorMode,
     tablePreset: params.tablePreset.value as TablePreset,
     headingLevel: params.headingLevel.value as number,

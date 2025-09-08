@@ -703,7 +703,7 @@ export const nodeDescription: INodeTypeDescription = {
       description: 'Whether to include table headers in the converted output',
       displayOptions: {
         show: {
-          operation: ['convert'],
+          operation: ['convert', 'replace'],
           targetFormat: ['html', 'csv'],
         },
       },

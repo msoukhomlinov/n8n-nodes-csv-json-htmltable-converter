@@ -114,6 +114,7 @@ describe('extractReplaceParameters', () => {
       replacementContent: '<table><tr><td>new</td></tr></table>',
       outputField: 'result',
       prettyPrint: true,
+      includeTableHeaders: true,
       selectorMode: 'simple',
       tablePreset: 'first-table',
       headingLevel: 2,
@@ -139,6 +140,7 @@ describe('extractReplaceParameters', () => {
     expect(result.replacementContent).toBe(mockParams.replacementContent);
     expect(result.outputField).toBe(mockParams.outputField);
     expect(result.prettyPrint).toBe(mockParams.prettyPrint);
+    expect(result.includeTableHeaders).toBe(mockParams.includeTableHeaders);
     expect(result.selectorMode).toBe(mockParams.selectorMode);
     expect(result.tablePreset).toBe(mockParams.tablePreset);
   });
@@ -150,6 +152,7 @@ describe('extractReplaceParameters', () => {
       replacementContent: '[{"name": "John", "age": 30}]',
       outputField: 'result',
       prettyPrint: false,
+      includeTableHeaders: false,
       selectorMode: 'simple',
       tablePreset: 'first-table',
       headingLevel: 1,
@@ -172,13 +175,15 @@ describe('extractReplaceParameters', () => {
       // Return appropriate defaults for missing parameters
       if (paramName === 'prettyPrint') return false;
       if (paramName === 'wrapOutput') return true;
+      if (paramName === 'includeTableHeaders') return true;
       return '';
     });
 
     const result = extractReplaceParameters(mockExecuteFunctions);
 
     expect(result.replacementFormat).toBe('n8nObject');
-    expect(result.replacementContent).toBe(mockParams.replacementContent);
+    // For n8nObject format, the content is parsed as JSON, so we compare the parsed result
+    expect(result.replacementContent).toEqual([{"name": "John", "age": 30}]);
   });
 });
 

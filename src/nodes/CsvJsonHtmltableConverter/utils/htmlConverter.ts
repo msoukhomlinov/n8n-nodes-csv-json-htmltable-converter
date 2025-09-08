@@ -252,52 +252,82 @@ function processTable(
   tables.push(tableData);
 }
 
-/**
- * Escapes HTML special characters to prevent XSS
- */
-function escapeHtml(unsafe: string): string {
-  return unsafe
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
 
 /**
- * Utility function to convert TableData to HTML string for debugging
+ * Utility function to convert TableData to HTML string for debugging using Cheerio construction
  */
 function tableDataToHtml(table: TableData): string {
-  let html = '<table>';
+  const $ = cheerio.load('');
+  const tableElement = $('<table></table>');
 
   // Add headers if present
   if (table.headers.length > 0) {
-    html += '<thead><tr>';
-    for (const header of table.headers) {
-      html += `<th>${escapeHtml(header)}</th>`;
-    }
-    html += '</tr></thead>';
+    const thead = $('<thead></thead>');
+    const headerRow = $('<tr></tr>').appendTo(thead);
+
+    table.headers.forEach(header => {
+      $('<th></th>').text(header).appendTo(headerRow);
+    });
+
+    tableElement.append(thead);
   }
 
   // Add rows
-  html += '<tbody>';
+  const tbody = $('<tbody></tbody>');
   if (table.rows.length > 0) {
     // Only include first few rows for debugging
     const sampleRows = table.rows.slice(0, 3);
-    for (const row of sampleRows) {
-      html += '<tr>';
-      for (const cell of row) {
-        html += `<td>${escapeHtml(cell)}</td>`;
-      }
-      html += '</tr>';
-    }
+    sampleRows.forEach(rowData => {
+      const row = $('<tr></tr>').appendTo(tbody);
+      rowData.forEach(cell => {
+        $('<td></td>').text(cell).appendTo(row);
+      });
+    });
+
     if (table.rows.length > 3) {
-      html += '<tr><td colspan="100">...</td></tr>';
+      const ellipsisRow = $('<tr></tr>').appendTo(tbody);
+      $('<td></td>').attr('colspan', '100').text('...').appendTo(ellipsisRow);
     }
   }
-  html += '</tbody></table>';
+  tableElement.append(tbody);
 
-  return html;
+  return tableElement.toString();
+}
+
+/**
+ * Utility function to build a complete table from TableData using Cheerio construction
+ */
+function buildTableFromTableData(table: TableData, $: any): any {
+  const tableElement = $('<table></table>');
+
+  // Add caption if present
+  if (table.caption) {
+    $('<caption></caption>').text(table.caption).appendTo(tableElement);
+  }
+
+  // Add headers if present
+  if (table.headers.length > 0) {
+    const thead = $('<thead></thead>');
+    const headerRow = $('<tr></tr>').appendTo(thead);
+
+    table.headers.forEach(header => {
+      $('<th></th>').text(header).appendTo(headerRow);
+    });
+
+    tableElement.append(thead);
+  }
+
+  // Add rows
+  const tbody = $('<tbody></tbody>');
+  table.rows.forEach(rowData => {
+    const row = $('<tr></tr>').appendTo(tbody);
+    rowData.forEach(cell => {
+      $('<td></td>').text(cell).appendTo(row);
+    });
+  });
+  tableElement.append(tbody);
+
+  return tableElement;
 }
 
 /**
@@ -541,99 +571,53 @@ export async function htmlToHtml(html: string, options: ConversionOptions): Prom
     });
   }
 
-  let output = '';
-  const indentation = prettyPrint ? '\n  ' : '';
+  const $ = cheerio.load('');
 
-  // Handle multiple tables vs single table
+  // Handle multiple tables vs single table using Cheerio construction
   if (!options.multipleItems && tables.length === 1) {
-    const table = tables[0];
+    // Single table
+    const table = buildTableFromTableData(tables[0], $);
 
-    output += '<table>';
+    // Format output based on pretty print option
+    let output = table.toString();
 
-    // Add caption if present
-    if (table.caption) {
-      output += `${indentation}<caption>${escapeHtml(table.caption)}</caption>`;
+    if (prettyPrint) {
+      // For pretty print, use cheerio's built-in formatting
+      output = $.html(table);
+    } else {
+      // For minified output, use the existing minifier
+      output = simpleHtmlMinify(output);
     }
 
-    // Add headers if present
-    if (table.headers.length > 0) {
-      output += `${indentation}<thead>`;
-      output += `${indentation}  <tr>`;
-
-      for (const header of table.headers) {
-        output += `${indentation}    <th>${escapeHtml(header)}</th>`;
-      }
-
-      output += `${indentation}  </tr>`;
-      output += `${indentation}</thead>`;
-    }
-
-    // Add rows
-    output += `${indentation}<tbody>`;
-
-    for (const row of table.rows) {
-      output += `${indentation}  <tr>`;
-
-      for (const cell of row) {
-        output += `${indentation}    <td>${escapeHtml(cell)}</td>`;
-      }
-
-      output += `${indentation}  </tr>`;
-    }
-
-    output += `${indentation}</tbody>`;
-    output += prettyPrint ? '\n</table>' : '</table>';
+    return output;
   } else {
     // Multiple tables
-    for (let i = 0; i < tables.length; i++) {
-      const table = tables[i];
+    const tablesContainer = $('<div></div>'); // Temporary container for multiple tables
 
-      if (i > 0) {
-        output += prettyPrint ? '\n\n' : '';
+    tables.forEach((tableData, index) => {
+      const table = buildTableFromTableData(tableData, $);
+      tablesContainer.append(table);
+
+      // Add spacing between tables for pretty print
+      if (index < tables.length - 1 && prettyPrint) {
+        tablesContainer.append('\n\n');
       }
+    });
 
-      output += '<table>';
-
-      // Add caption if present
-      if (table.caption) {
-        output += `${indentation}<caption>${escapeHtml(table.caption)}</caption>`;
+    // Get the HTML content without the wrapper div
+    let output = '';
+    tablesContainer.children().each((index, element) => {
+      if (index > 0 && prettyPrint) {
+        output += '\n\n';
       }
+      output += $(element).toString();
+    });
 
-      // Add headers if present
-      if (table.headers.length > 0) {
-        output += `${indentation}<thead>`;
-        output += `${indentation}  <tr>`;
-
-        for (const header of table.headers) {
-          output += `${indentation}    <th>${escapeHtml(header)}</th>`;
-        }
-
-        output += `${indentation}  </tr>`;
-        output += `${indentation}</thead>`;
-      }
-
-      // Add rows
-      output += `${indentation}<tbody>`;
-
-      for (const row of table.rows) {
-        output += `${indentation}  <tr>`;
-
-        for (const cell of row) {
-          output += `${indentation}    <td>${escapeHtml(cell)}</td>`;
-        }
-
-        output += `${indentation}  </tr>`;
-      }
-
-      output += `${indentation}</tbody>`;
-      output += prettyPrint ? '\n</table>' : '</table>';
+    // Apply minification if pretty print is disabled
+    if (!prettyPrint) {
+      output = simpleHtmlMinify(output);
     }
-  }
 
-  // Apply minification if pretty print is disabled
-  if (!prettyPrint) {
-    output = simpleHtmlMinify(output);
+    return output;
   }
-
-  return output;
 }
