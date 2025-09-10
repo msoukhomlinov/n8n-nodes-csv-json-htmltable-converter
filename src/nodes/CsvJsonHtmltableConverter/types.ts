@@ -51,6 +51,17 @@ export interface ConversionOptions {
   tableTextAlign?: string;
   rowTextAlign?: string;
   cellTextAlign?: string;
+
+  // Simple style options for Replace operation
+  headerTextAlign?: string;
+  bodyTextAlign?: string;
+  headerVerticalAlign?: string;
+  bodyVerticalAlign?: string;
+  headerWrap?: string; // 'wrap' | 'nowrap' | ''
+  bodyWrap?: string; // 'wrap' | 'nowrap' | ''
+  numericAlignment?: string; // 'right' | 'left' | ''
+  bandedRows?: string; // 'on' | 'off' | '' (unchanged)
+  tableWidth?: string; // 'auto' | 'full' | '' (unchanged)
 }
 
 /**

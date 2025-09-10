@@ -75,8 +75,19 @@ export function applyTableStyles(htmlInput: string, options: ConversionOptions):
     }
     if (options.tableTextAlign) {
       tableStyles['text-align'] = options.tableTextAlign;
+    } else if (options.bodyTextAlign) {
+      // Fallback: if body alignment is requested but no explicit table text align is set,
+      // set table-level text-align as a baseline so alignment is visible in markup
+      tableStyles['text-align'] = options.bodyTextAlign;
     }
 
+
+    // Simple table width option
+    if (options.tableWidth === 'full') {
+      tableStyles['width'] = '100%';
+    } else if (options.tableWidth === 'auto') {
+      tableStyles['width'] = 'auto';
+    }
 
     if (Object.keys(tableStyles).length) {
       $table.css(tableStyles);
@@ -97,6 +108,32 @@ export function applyTableStyles(htmlInput: string, options: ConversionOptions):
       }
     });
 
+    // Apply header/body alignment and wrapping first
+    if (options.headerTextAlign) {
+      $table.find('th').css('text-align', options.headerTextAlign);
+    }
+    if (options.bodyTextAlign) {
+      $table.find('td').css('text-align', options.bodyTextAlign);
+    }
+    if (options.headerVerticalAlign) {
+      $table.find('th').css('vertical-align', options.headerVerticalAlign);
+    }
+    if (options.bodyVerticalAlign) {
+      $table.find('td').css('vertical-align', options.bodyVerticalAlign);
+    }
+    if (options.headerWrap) {
+      const headerWhiteSpace = options.headerWrap === 'nowrap' ? 'nowrap' : (options.headerWrap === 'wrap' ? 'normal' : undefined);
+      if (headerWhiteSpace) {
+        $table.find('th').css('white-space', headerWhiteSpace);
+      }
+    }
+    if (options.bodyWrap) {
+      const bodyWhiteSpace = options.bodyWrap === 'nowrap' ? 'nowrap' : (options.bodyWrap === 'wrap' ? 'normal' : undefined);
+      if (bodyWhiteSpace) {
+        $table.find('td').css('white-space', bodyWhiteSpace);
+      }
+    }
+
     // Cell style and cell text align for <td> and <th>
     $table.find('td, th').each((_, cell) => {
       const $cell = $(cell);
@@ -112,7 +149,7 @@ export function applyTableStyles(htmlInput: string, options: ConversionOptions):
       }
     });
 
-    // Zebra striping
+    // Zebra striping (existing advanced option)
     if (options.zebraStriping) {
       $table.find('tbody tr').each((i, row) => {
         const $row = $(row);
@@ -120,6 +157,32 @@ export function applyTableStyles(htmlInput: string, options: ConversionOptions):
           $row.css('background-color', options.evenRowColor);
         } else if (i % 2 === 1 && options.oddRowColor) {
           $row.css('background-color', options.oddRowColor);
+        }
+      });
+    }
+
+    // Simple banded rows option (defaults)
+    if (options.bandedRows === 'on') {
+      $table.find('tbody tr').each((i, row) => {
+        const $row = $(row);
+        if (i % 2 === 0) {
+          // apply a subtle default even-row background
+          if (!$row.attr('style') || !$row.attr('style')!.includes('background-color')) {
+            $row.css('background-color', '#f9f9f9');
+          }
+        }
+      });
+    }
+
+    // Numeric alignment overrides for data cells
+    if (options.numericAlignment === 'right' || options.numericAlignment === 'left') {
+      const align = options.numericAlignment;
+      const numberRegex = /^\s*[+-]?(?:\d{1,3}(?:,\d{3})*|\d+)(?:\.\d+)?\s*(?:[%])?\s*$/;
+      $table.find('td').each((_, cell) => {
+        const $cell = $(cell);
+        const text = $cell.text();
+        if (numberRegex.test(text)) {
+          $cell.css('text-align', align);
         }
       });
     }

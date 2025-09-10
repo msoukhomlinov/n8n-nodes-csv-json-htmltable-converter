@@ -144,6 +144,224 @@ export const nodeDescription: INodeTypeDescription = {
         },
       },
     },
+    // Replace Style Options (simple)
+    {
+      displayName: 'Show Style Options',
+      name: 'showStyleOptions',
+      type: 'boolean',
+      default: false,
+      description: 'Show simple styling options to apply to the generated table',
+      displayOptions: {
+        show: {
+          operation: ['replace'],
+        },
+        hide: {
+          replacementFormat: ['html'],
+        },
+      },
+    },
+    // Header horizontal alignment
+    {
+      displayName: 'Header Horizontal Alignment',
+      name: 'headerHorizontalAlign',
+      type: 'options',
+      options: [
+        { name: 'Unchanged', value: '' },
+        { name: 'Left', value: 'left' },
+        { name: 'Centre', value: 'center' },
+        { name: 'Right', value: 'right' },
+      ],
+      default: '',
+      description: 'Horizontal alignment for header cells (<th>)',
+      displayOptions: {
+        show: {
+          operation: ['replace'],
+          showStyleOptions: [true],
+        },
+        hide: {
+          replacementFormat: ['html'],
+        },
+      },
+    },
+    // Body horizontal alignment
+    {
+      displayName: 'Body Horizontal Alignment',
+      name: 'bodyHorizontalAlign',
+      type: 'options',
+      options: [
+        { name: 'Unchanged', value: '' },
+        { name: 'Left', value: 'left' },
+        { name: 'Centre', value: 'center' },
+        { name: 'Right', value: 'right' },
+      ],
+      default: '',
+      description: 'Horizontal alignment for data cells (<td>)',
+      displayOptions: {
+        show: {
+          operation: ['replace'],
+          showStyleOptions: [true],
+        },
+        hide: {
+          replacementFormat: ['html'],
+        },
+      },
+    },
+    // Numeric alignment
+    {
+      displayName: 'Numeric Alignment',
+      name: 'numericAlignment',
+      type: 'options',
+      options: [
+        { name: 'Unchanged', value: '' },
+        { name: 'Right', value: 'right' },
+        { name: 'Left', value: 'left' },
+      ],
+      default: '',
+      description: 'Alignment to apply only to numeric cells',
+      displayOptions: {
+        show: {
+          operation: ['replace'],
+          showStyleOptions: [true],
+        },
+        hide: {
+          replacementFormat: ['html'],
+        },
+      },
+    },
+    // Banded rows
+    {
+      displayName: 'Banded Rows',
+      name: 'bandedRows',
+      type: 'options',
+      options: [
+        { name: 'Unchanged', value: '' },
+        { name: 'On', value: 'on' },
+        { name: 'Off', value: 'off' },
+      ],
+      default: '',
+      description: 'Apply zebra striping to even rows',
+      displayOptions: {
+        show: {
+          operation: ['replace'],
+          showStyleOptions: [true],
+        },
+        hide: {
+          replacementFormat: ['html'],
+        },
+      },
+    },
+    // Header vertical alignment
+    {
+      displayName: 'Header Vertical Alignment',
+      name: 'headerVerticalAlign',
+      type: 'options',
+      options: [
+        { name: 'Unchanged', value: '' },
+        { name: 'Top', value: 'top' },
+        { name: 'Middle', value: 'middle' },
+        { name: 'Bottom', value: 'bottom' },
+      ],
+      default: '',
+      description: 'Vertical alignment for header cells',
+      displayOptions: {
+        show: {
+          operation: ['replace'],
+          showStyleOptions: [true],
+        },
+        hide: {
+          replacementFormat: ['html'],
+        },
+      },
+    },
+    // Body vertical alignment
+    {
+      displayName: 'Body Vertical Alignment',
+      name: 'bodyVerticalAlign',
+      type: 'options',
+      options: [
+        { name: 'Unchanged', value: '' },
+        { name: 'Top', value: 'top' },
+        { name: 'Middle', value: 'middle' },
+        { name: 'Bottom', value: 'bottom' },
+      ],
+      default: '',
+      description: 'Vertical alignment for data cells',
+      displayOptions: {
+        show: {
+          operation: ['replace'],
+          showStyleOptions: [true],
+        },
+        hide: {
+          replacementFormat: ['html'],
+        },
+      },
+    },
+    // Header wrap
+    {
+      displayName: 'Header Text Wrapping',
+      name: 'headerWrap',
+      type: 'options',
+      options: [
+        { name: 'Unchanged', value: '' },
+        { name: 'Wrap', value: 'wrap' },
+        { name: 'No Wrap', value: 'nowrap' },
+      ],
+      default: '',
+      description: 'Wrapping behaviour for header cells',
+      displayOptions: {
+        show: {
+          operation: ['replace'],
+          showStyleOptions: [true],
+        },
+        hide: {
+          replacementFormat: ['html'],
+        },
+      },
+    },
+    // Body wrap
+    {
+      displayName: 'Body Text Wrapping',
+      name: 'bodyWrap',
+      type: 'options',
+      options: [
+        { name: 'Unchanged', value: '' },
+        { name: 'Wrap', value: 'wrap' },
+        { name: 'No Wrap', value: 'nowrap' },
+      ],
+      default: '',
+      description: 'Wrapping behaviour for data cells',
+      displayOptions: {
+        show: {
+          operation: ['replace'],
+          showStyleOptions: [true],
+        },
+        hide: {
+          replacementFormat: ['html'],
+        },
+      },
+    },
+    // Table width
+    {
+      displayName: 'Table Width',
+      name: 'tableWidth',
+      type: 'options',
+      options: [
+        { name: 'Unchanged', value: '' },
+        { name: 'Auto', value: 'auto' },
+        { name: 'Full Width (100%)', value: 'full' },
+      ],
+      default: '',
+      description: 'Width of the table element',
+      displayOptions: {
+        show: {
+          operation: ['replace'],
+          showStyleOptions: [true],
+        },
+        hide: {
+          replacementFormat: ['html'],
+        },
+      },
+    },
     // Style Operation Help Text
     /**
      * Style Operation:

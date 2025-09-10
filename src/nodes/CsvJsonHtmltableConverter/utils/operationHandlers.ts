@@ -18,6 +18,7 @@ import {
   extractConversionParameters,
   extractN8nObjectParameters
 } from './parameterHandler';
+import * as cheerio from 'cheerio';
 
 
 
@@ -25,6 +26,91 @@ export interface OperationContext {
   executeFunctions: IExecuteFunctions;
   items: INodeExecutionData[];
   returnData: INodeExecutionData[];
+}
+
+/**
+ * Apply styles only to tables in the replacement content (not to all tables in the document)
+ */
+function applyStylesOnlyToReplacementTable(htmlContent: string, styleOptions: ConversionOptions): string {
+  // Load the replacement content HTML (should only contain the generated table)
+  const $ = cheerio.load(htmlContent, { xmlMode: true });
+
+  $('table').each((_, table) => {
+    const $table = $(table);
+
+    // Apply table-level styles
+    const tableStyles: Record<string, string> = {};
+
+    if (styleOptions.tableWidth === 'full') {
+      tableStyles['width'] = '100%';
+    } else if (styleOptions.tableWidth === 'auto') {
+      tableStyles['width'] = 'auto';
+    }
+
+    if (styleOptions.bodyTextAlign) {
+      tableStyles['text-align'] = styleOptions.bodyTextAlign;
+    }
+
+    if (Object.keys(tableStyles).length) {
+      $table.css(tableStyles);
+    }
+
+    // Apply header alignment and styling
+    if (styleOptions.headerTextAlign) {
+      $table.find('th').css('text-align', styleOptions.headerTextAlign);
+    }
+    if (styleOptions.headerVerticalAlign) {
+      $table.find('th').css('vertical-align', styleOptions.headerVerticalAlign);
+    }
+    if (styleOptions.headerWrap) {
+      const headerWhiteSpace = styleOptions.headerWrap === 'nowrap' ? 'nowrap' : (styleOptions.headerWrap === 'wrap' ? 'normal' : undefined);
+      if (headerWhiteSpace) {
+        $table.find('th').css('white-space', headerWhiteSpace);
+      }
+    }
+
+    // Apply body alignment and styling
+    if (styleOptions.bodyTextAlign) {
+      $table.find('td').css('text-align', styleOptions.bodyTextAlign);
+    }
+    if (styleOptions.bodyVerticalAlign) {
+      $table.find('td').css('vertical-align', styleOptions.bodyVerticalAlign);
+    }
+    if (styleOptions.bodyWrap) {
+      const bodyWhiteSpace = styleOptions.bodyWrap === 'nowrap' ? 'nowrap' : (styleOptions.bodyWrap === 'wrap' ? 'normal' : undefined);
+      if (bodyWhiteSpace) {
+        $table.find('td').css('white-space', bodyWhiteSpace);
+      }
+    }
+
+    // Apply banded rows
+    if (styleOptions.bandedRows === 'on') {
+      $table.find('tbody tr').each((i, row) => {
+        const $row = $(row);
+        if (i % 2 === 0) {
+          // apply a subtle default even-row background
+          if (!$row.attr('style') || !$row.attr('style')!.includes('background-color')) {
+            $row.css('background-color', '#f9f9f9');
+          }
+        }
+      });
+    }
+
+    // Apply numeric alignment overrides for data cells
+    if (styleOptions.numericAlignment === 'right' || styleOptions.numericAlignment === 'left') {
+      const align = styleOptions.numericAlignment;
+      const numberRegex = /^\s*[+-]?(?:\d{1,3}(?:,\d{3})*|\d+)(?:\.\d+)?\s*(?:[%])?\s*$/;
+      $table.find('td').each((_, cell) => {
+        const $cell = $(cell);
+        const text = $cell.text();
+        if (numberRegex.test(text)) {
+          $cell.css('text-align', align);
+        }
+      });
+    }
+  });
+
+  return $.root().html() || '';
 }
 
 /**
@@ -41,6 +127,21 @@ export async function handleReplaceOperation(context: OperationContext): Promise
     let htmlReplacementContent: string = params.replacementContent as string;
     if (params.replacementFormat !== 'html') {
       htmlReplacementContent = await convertReplacementContent(params, options);
+    }
+
+    // If simple style options are enabled and replacementFormat is not HTML, apply styles ONLY to the generated replacement table
+    if (params.replacementFormat !== 'html' && params.showStyleOptions) {
+      htmlReplacementContent = applyStylesOnlyToReplacementTable(htmlReplacementContent, {
+        headerTextAlign: params.headerHorizontalAlign,
+        bodyTextAlign: params.bodyHorizontalAlign,
+        headerVerticalAlign: params.headerVerticalAlign,
+        bodyVerticalAlign: params.bodyVerticalAlign,
+        headerWrap: params.headerWrap,
+        bodyWrap: params.bodyWrap,
+        numericAlignment: params.numericAlignment,
+        bandedRows: params.bandedRows,
+        tableWidth: params.tableWidth,
+      });
     }
 
     // Replace the table in the source HTML

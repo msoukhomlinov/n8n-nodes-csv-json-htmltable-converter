@@ -450,6 +450,66 @@ export const PARAMETER_DEFINITIONS = {
     minLength: 1,
     maxLength: 100,
   } as ParameterDefinition<string>,
+  // Replace simple style parameters
+  showStyleOptions: {
+    name: 'showStyleOptions',
+    type: 'boolean' as const,
+    defaultValue: false,
+  } as ParameterDefinition<boolean>,
+  headerHorizontalAlign: {
+    name: 'headerHorizontalAlign',
+    type: 'enum' as const,
+    defaultValue: '',
+    enumValues: ['', 'left', 'center', 'right'] as const,
+  } as ParameterDefinition<string>,
+  bodyHorizontalAlign: {
+    name: 'bodyHorizontalAlign',
+    type: 'enum' as const,
+    defaultValue: '',
+    enumValues: ['', 'left', 'center', 'right'] as const,
+  } as ParameterDefinition<string>,
+  numericAlignment: {
+    name: 'numericAlignment',
+    type: 'enum' as const,
+    defaultValue: '',
+    enumValues: ['', 'right', 'left'] as const,
+  } as ParameterDefinition<string>,
+  bandedRows: {
+    name: 'bandedRows',
+    type: 'enum' as const,
+    defaultValue: '',
+    enumValues: ['', 'on', 'off'] as const,
+  } as ParameterDefinition<string>,
+  headerVerticalAlign: {
+    name: 'headerVerticalAlign',
+    type: 'enum' as const,
+    defaultValue: '',
+    enumValues: ['', 'top', 'middle', 'bottom'] as const,
+  } as ParameterDefinition<string>,
+  bodyVerticalAlign: {
+    name: 'bodyVerticalAlign',
+    type: 'enum' as const,
+    defaultValue: '',
+    enumValues: ['', 'top', 'middle', 'bottom'] as const,
+  } as ParameterDefinition<string>,
+  headerWrap: {
+    name: 'headerWrap',
+    type: 'enum' as const,
+    defaultValue: '',
+    enumValues: ['', 'wrap', 'nowrap'] as const,
+  } as ParameterDefinition<string>,
+  bodyWrap: {
+    name: 'bodyWrap',
+    type: 'enum' as const,
+    defaultValue: '',
+    enumValues: ['', 'wrap', 'nowrap'] as const,
+  } as ParameterDefinition<string>,
+  tableWidth: {
+    name: 'tableWidth',
+    type: 'enum' as const,
+    defaultValue: '',
+    enumValues: ['', 'auto', 'full'] as const,
+  } as ParameterDefinition<string>,
 };
 
 /**
@@ -507,6 +567,40 @@ export function extractReplaceParameters(executeFunctions: IExecuteFunctions, it
     fields: PARAMETER_DEFINITIONS.fields,
   });
 
+  // Extract simple style options leniently (avoid strict validation to preserve backward compatibility in tests)
+  let showStyleOptions = false;
+  try {
+    const v = executeFunctions.getNodeParameter('showStyleOptions', itemIndex, false) as any;
+    showStyleOptions = v === true || v === 'true';
+  } catch {}
+  const headerHorizontalAlign = ((): string => {
+    try { return executeFunctions.getNodeParameter('headerHorizontalAlign', itemIndex, '') as string; } catch { return ''; }
+  })();
+  const bodyHorizontalAlign = ((): string => {
+    try { return executeFunctions.getNodeParameter('bodyHorizontalAlign', itemIndex, '') as string; } catch { return ''; }
+  })();
+  const numericAlignment = ((): string => {
+    try { return executeFunctions.getNodeParameter('numericAlignment', itemIndex, '') as string; } catch { return ''; }
+  })();
+  const bandedRows = ((): string => {
+    try { return executeFunctions.getNodeParameter('bandedRows', itemIndex, '') as string; } catch { return ''; }
+  })();
+  const headerVerticalAlign = ((): string => {
+    try { return executeFunctions.getNodeParameter('headerVerticalAlign', itemIndex, '') as string; } catch { return ''; }
+  })();
+  const bodyVerticalAlign = ((): string => {
+    try { return executeFunctions.getNodeParameter('bodyVerticalAlign', itemIndex, '') as string; } catch { return ''; }
+  })();
+  const headerWrap = ((): string => {
+    try { return executeFunctions.getNodeParameter('headerWrap', itemIndex, '') as string; } catch { return ''; }
+  })();
+  const bodyWrap = ((): string => {
+    try { return executeFunctions.getNodeParameter('bodyWrap', itemIndex, '') as string; } catch { return ''; }
+  })();
+  const tableWidth = ((): string => {
+    try { return executeFunctions.getNodeParameter('tableWidth', itemIndex, '') as string; } catch { return ''; }
+  })();
+
   return {
     sourceHtml: params.sourceHtml.value as string,
     replacementFormat,
@@ -527,6 +621,16 @@ export function extractReplaceParameters(executeFunctions: IExecuteFunctions, it
     sortByField: params.sortByField.value as string,
     sortOrder: params.sortOrder.value as 'ascending' | 'descending',
     fields: params.fields.value as string,
+    showStyleOptions,
+    headerHorizontalAlign,
+    bodyHorizontalAlign,
+    numericAlignment,
+    bandedRows,
+    headerVerticalAlign,
+    bodyVerticalAlign,
+    headerWrap,
+    bodyWrap,
+    tableWidth,
   };
 }
 
