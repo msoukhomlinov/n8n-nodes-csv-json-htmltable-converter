@@ -450,6 +450,13 @@ export const PARAMETER_DEFINITIONS = {
     minLength: 1,
     maxLength: 100,
   } as ParameterDefinition<string>,
+
+  processAllItemsAtOnce: {
+    name: 'processAllItemsAtOnce',
+    type: 'boolean' as const,
+    defaultValue: false,
+  } as ParameterDefinition<boolean>,
+
   // Replace simple style parameters
   showStyleOptions: {
     name: 'showStyleOptions',
@@ -782,6 +789,15 @@ export function extractN8nObjectParameters(executeFunctions: IExecuteFunctions, 
     // Use defaults if parameters not found
   }
 
+  // Extract processAllItemsAtOnce parameter
+  let processAllItemsAtOnce = false;
+  try {
+    const processAllItemsParam = extractor.extractParameter(PARAMETER_DEFINITIONS.processAllItemsAtOnce);
+    processAllItemsAtOnce = processAllItemsParam.value as boolean;
+  } catch (error) {
+    // Use default if parameter not found
+  }
+
   const multipleItems = false; // Default to false for n8nObject source format
   const csvDelimiter = targetFormat === 'csv' ? executeFunctions.getNodeParameter('csvDelimiterOutput', 0, ',') as string : ',';
 
@@ -794,5 +810,6 @@ export function extractN8nObjectParameters(executeFunctions: IExecuteFunctions, 
     csvDelimiter,
     wrapOutput,
     outputFieldName,
+    processAllItemsAtOnce,
   };
 }

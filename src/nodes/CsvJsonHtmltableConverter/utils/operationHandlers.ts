@@ -184,6 +184,44 @@ export async function handleStyleOperation(context: OperationContext): Promise<I
 }
 
 /**
+ * Extract data from a single n8n execution item
+ */
+function extractSingleItemData(item: INodeExecutionData): IDataObject[] {
+  const itemData: IDataObject[] = [];
+  let inputData: object;
+
+  if (item.json && Object.keys(item.json).length > 0) {
+    if (item.json.convertedData !== undefined) {
+      inputData = item.json.convertedData as object;
+    } else {
+      const filteredData: IDataObject = {};
+      for (const key of Object.keys(item.json)) {
+        if (!key.startsWith('__')) {
+          filteredData[key] = item.json[key];
+        }
+      }
+      inputData = filteredData;
+    }
+  } else {
+    inputData = {};
+  }
+
+  // If it's an array, add each item, otherwise add the object itself
+  if (Array.isArray(inputData)) {
+    for (const item of inputData) {
+      if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
+        itemData.push(item as IDataObject);
+      }
+    }
+  } else if (!Array.isArray(inputData) && typeof inputData === 'object' && inputData !== null) {
+    // Only add objects, not strings or primitives that might get iterated
+    itemData.push(inputData as IDataObject);
+  }
+
+  return itemData;
+}
+
+/**
  * Handle n8nObject special processing
  */
 export async function handleN8nObjectProcessing(context: OperationContext): Promise<INodeExecutionData[][]> {
@@ -193,28 +231,94 @@ export async function handleN8nObjectProcessing(context: OperationContext): Prom
   const params = extractN8nObjectParameters(executeFunctions, targetFormat);
   const options = buildN8nObjectOptions(params);
 
-  // Collect all input items
-  const allItems: IDataObject[] = collectN8nObjectItems(items, executeFunctions);
+  // Check processAllItemsAtOnce FIRST, regardless of inputData source
+  // This ensures the parameter controls behavior even when inputData expressions are used
+  if (params.processAllItemsAtOnce) {
+    // Process all items together: collect from all items (whether from expressions or previous node)
+    const allItems: IDataObject[] = collectN8nObjectItems(items, executeFunctions);
 
-  if (allItems.length > 0) {
-    const finalResult = await processN8nObjectItems(allItems, targetFormat, options);
-    // Use formatOutputItem to handle wrapping based on user preferences
-    // For n8nObject processing, use itemIndex 0 since we're processing all items together
-    const outputItem = formatOutputItem(finalResult, targetFormat, params.outputField, params.wrapOutput, params.outputFieldName, 0);
-    if (Array.isArray(outputItem)) {
-      returnData.push(...outputItem);
+    if (allItems.length > 0) {
+      const finalResult = await processN8nObjectItems(allItems, targetFormat, options);
+      // Use formatOutputItem to handle wrapping based on user preferences
+      // For n8nObject processing, use itemIndex 0 since we're processing all items together
+      const outputItem = formatOutputItem(finalResult, targetFormat, params.outputField, params.wrapOutput, params.outputFieldName, 0);
+      if (Array.isArray(outputItem)) {
+        returnData.push(...outputItem);
+      } else {
+        returnData.push(outputItem);
+      }
     } else {
-      returnData.push(outputItem);
+      // Handle empty case
+      const emptyResult = getEmptyResultForFormat(targetFormat);
+      // Use formatOutputItem to handle wrapping based on user preferences
+      const outputItem = formatOutputItem(emptyResult, targetFormat, params.outputField, params.wrapOutput, params.outputFieldName, 0);
+      if (Array.isArray(outputItem)) {
+        returnData.push(...outputItem);
+      } else {
+        returnData.push(outputItem);
+      }
     }
   } else {
-    // Handle empty case
-    const emptyResult = getEmptyResultForFormat(targetFormat);
-    // Use formatOutputItem to handle wrapping based on user preferences
-    const outputItem = formatOutputItem(emptyResult, targetFormat, params.outputField, params.wrapOutput, params.outputFieldName, 0);
-    if (Array.isArray(outputItem)) {
-      returnData.push(...outputItem);
-    } else {
-      returnData.push(outputItem);
+    // Process each item individually
+    // When inputData is an expression like {{ $json }}, it will be evaluated per item
+    for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
+      const item = items[itemIndex];
+
+      // Check if inputData is explicitly provided for this item
+      const inputDataParam = executeFunctions.getNodeParameter('inputData', itemIndex, '');
+      const hasExplicitInputData = inputDataParam && inputDataParam !== '';
+
+      let itemData: IDataObject[];
+
+      if (hasExplicitInputData) {
+        // Evaluate inputData expression for this specific item
+        let inputData: object;
+        if (typeof inputDataParam === 'string') {
+          try {
+            inputData = JSON.parse(inputDataParam);
+          } catch (error) {
+            inputData = { value: inputDataParam };
+          }
+        } else {
+          inputData = inputDataParam as object;
+        }
+
+        // Convert to array format for processing
+        itemData = [];
+        if (Array.isArray(inputData)) {
+          for (const dataItem of inputData) {
+            if (typeof dataItem === 'object' && dataItem !== null && !Array.isArray(dataItem)) {
+              itemData.push(dataItem as IDataObject);
+            }
+          }
+        } else if (!Array.isArray(inputData) && typeof inputData === 'object' && inputData !== null) {
+          itemData.push(inputData as IDataObject);
+        }
+      } else {
+        // No explicit input, use previous node data
+        itemData = extractSingleItemData(item);
+      }
+
+      if (itemData.length > 0) {
+        const finalResult = await processN8nObjectItems(itemData, targetFormat, options);
+        // Use formatOutputItem to handle wrapping based on user preferences
+        // Use actual itemIndex for proper paired item tracking
+        const outputItem = formatOutputItem(finalResult, targetFormat, params.outputField, params.wrapOutput, params.outputFieldName, itemIndex);
+        if (Array.isArray(outputItem)) {
+          returnData.push(...outputItem);
+        } else {
+          returnData.push(outputItem);
+        }
+      } else {
+        // Handle empty case for this item
+        const emptyResult = getEmptyResultForFormat(targetFormat);
+        const outputItem = formatOutputItem(emptyResult, targetFormat, params.outputField, params.wrapOutput, params.outputFieldName, itemIndex);
+        if (Array.isArray(outputItem)) {
+          returnData.push(...outputItem);
+        } else {
+          returnData.push(outputItem);
+        }
+      }
     }
   }
 
@@ -444,35 +548,98 @@ async function convertReplacementContent(params: any, options: ConversionOptions
 function collectN8nObjectItems(items: INodeExecutionData[], executeFunctions: IExecuteFunctions): IDataObject[] {
   const allItems: IDataObject[] = [];
 
-  // Check if inputData is explicitly provided (at itemIndex 0)
-  // If it is, process once without iterating through items from previous node
-  // This prevents paired item data errors when expressions reference different nodes
+  // Check if inputData is explicitly provided (at itemIndex 0 to detect if expression is used)
+  // When processAllItemsAtOnce=true, we need to evaluate the expression for EACH item
   const explicitInputData = executeFunctions.getNodeParameter('inputData', 0, '');
   const hasExplicitInputData = explicitInputData && explicitInputData !== '';
 
   if (hasExplicitInputData) {
-    // Process once with itemIndex 0 when explicit inputData is provided
-    let inputData: object;
-    if (typeof explicitInputData === 'string') {
-      try {
-        inputData = JSON.parse(explicitInputData);
-      } catch (error) {
-        inputData = { value: explicitInputData };
-      }
-    } else {
-      inputData = explicitInputData as object;
-    }
+    // InputData expression provided: check if it references a node by name
+    // Expressions like {{ $('Node Name').item.json }} return the same value regardless of itemIndex
+    // We detect this by comparing evaluation at itemIndex 0 and 1
+    let referencesNodeByName = false;
 
-    // If it's an array, add each item, otherwise add the object itself
-    if (Array.isArray(inputData)) {
-      for (const item of inputData) {
-        if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
-          allItems.push(item as IDataObject);
+    if (items.length > 1) {
+      const eval0 = executeFunctions.getNodeParameter('inputData', 0, '');
+      const eval1 = executeFunctions.getNodeParameter('inputData', 1, '');
+
+      // Check if both evaluations return the SAME OBJECT REFERENCE
+      // When {{ $('Node Name').item.json }} is used, n8n returns the same object reference
+      // When {{ $json }} is used, n8n returns different object references (one per item)
+      // This avoids false positives with identical data
+      if (eval0 === eval1) {
+        referencesNodeByName = true;
+      }
+    }
+    // Note: For single item case (items.length === 1), we default to per-item evaluation
+    // This ensures {{ $json }} works correctly even with one item
+    // If the user truly needs node-by-name with one item, the fallback path will handle it
+
+    if (referencesNodeByName) {
+      // Expression references a node by name: iterate through items array directly
+      // This assumes the referenced node is the immediate previous node (items array)
+      for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
+        const item = items[itemIndex];
+        let inputData: object;
+
+        if (item.json && Object.keys(item.json).length > 0) {
+          if (item.json.convertedData !== undefined) {
+            inputData = item.json.convertedData as object;
+          } else {
+            const filteredData: IDataObject = {};
+            for (const key of Object.keys(item.json)) {
+              if (!key.startsWith('__')) {
+                filteredData[key] = item.json[key];
+              }
+            }
+            inputData = filteredData;
+          }
+        } else {
+          inputData = {};
+        }
+
+        // If it's an array, add each item, otherwise add the object itself
+        if (Array.isArray(inputData)) {
+          for (const dataItem of inputData) {
+            if (typeof dataItem === 'object' && dataItem !== null && !Array.isArray(dataItem)) {
+              allItems.push(dataItem as IDataObject);
+            }
+          }
+        } else if (!Array.isArray(inputData) && typeof inputData === 'object' && inputData !== null) {
+          // Only add objects, not strings or primitives that might get iterated
+          allItems.push(inputData as IDataObject);
         }
       }
-    } else if (!Array.isArray(inputData) && typeof inputData === 'object' && inputData !== null) {
-      // Only add objects, not strings or primitives that might get iterated
-      allItems.push(inputData as IDataObject);
+    } else {
+      // Expression evaluates per-item (like {{ $json }}): evaluate for EACH item
+      for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
+        const inputDataParam = executeFunctions.getNodeParameter('inputData', itemIndex, '');
+
+        if (inputDataParam && inputDataParam !== '') {
+          let inputData: object;
+          if (typeof inputDataParam === 'string') {
+            try {
+              inputData = JSON.parse(inputDataParam);
+            } catch (error) {
+              inputData = { value: inputDataParam };
+            }
+          } else {
+            inputData = inputDataParam as object;
+          }
+
+          // If it's an array, add each item, otherwise add the object itself
+          if (Array.isArray(inputData)) {
+            for (const item of inputData) {
+              if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
+                allItems.push(item as IDataObject);
+              }
+            }
+          } else if (!Array.isArray(inputData) && typeof inputData === 'object' && inputData !== null) {
+            // Only add objects, not strings or primitives that might get iterated
+            allItems.push(inputData as IDataObject);
+          }
+        }
+      }
     }
   } else {
     // No explicit input provided, iterate through items from previous node (existing behavior)

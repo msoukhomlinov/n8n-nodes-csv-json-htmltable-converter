@@ -2,6 +2,17 @@
 
 All notable changes to the n8n-nodes-csv-json-htmltable-converter package will be documented in this file.
 
+## [1.4.1] - 2025-11-09
+
+### Fixed
+- Fixed n8n package installation/upgrade error by downgrading cheerio from 1.0.0 to 1.0.0-rc.12. The stable RC version does not have the undici transitive dependency that was causing n8n's package manager to fail during installation and upgrades.
+
+## [1.4.0] - 2025-11-09
+
+### Added
+- Added "Process All Items At Once" option for Convert Operation when Source Format is n8n Object. When disabled (default), processes each incoming item from the immediately previous node separately producing individual outputs. When enabled, combines all incoming items and processes them together into a single output. This option only applies when processing from the immediately previous node (Input Data field is empty).
+
+
 ## [1.3.8] - 2025-11-09
 
 ### Fixed

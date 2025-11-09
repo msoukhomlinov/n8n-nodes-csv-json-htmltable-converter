@@ -56,6 +56,19 @@ export const nodeDescription: INodeTypeDescription = {
       },
     },
     {
+      displayName: 'Process All Items At Once',
+      name: 'processAllItemsAtOnce',
+      type: 'boolean',
+      default: false,
+      description: 'When enabled, combines all incoming items from the immediately previous node and processes them together into a single output. When disabled (default), processes each item separately producing individual outputs. This option only applies when processing from the immediately previous node (Input Data field is empty).',
+      displayOptions: {
+        show: {
+          operation: ['convert'],
+          sourceFormat: ['n8nObject'],
+        },
+      },
+    },
+    {
       displayName: 'Input Data',
       name: 'inputData',
       type: 'string',
