@@ -148,7 +148,7 @@ export async function handleReplaceOperation(context: OperationContext): Promise
     const result = await replaceTable(params.sourceHtml, htmlReplacementContent, options);
 
     // Use formatOutputItem to handle wrapping based on user preferences
-    const outputItem = formatOutputItem(result, 'html', params.outputField, params.wrapOutput, params.outputFieldName);
+    const outputItem = formatOutputItem(result, 'html', params.outputField, params.wrapOutput, params.outputFieldName, itemIndex);
     if (Array.isArray(outputItem)) {
       returnData.push(...outputItem);
     } else {
@@ -172,7 +172,7 @@ export async function handleStyleOperation(context: OperationContext): Promise<I
     const styledHtml = applyTableStyles(params.htmlInput, styleOptions);
 
     // Use formatOutputItem to handle wrapping based on user preferences
-    const outputItem = formatOutputItem(styledHtml, 'html', params.outputField, params.wrapOutput, params.outputFieldName);
+    const outputItem = formatOutputItem(styledHtml, 'html', params.outputField, params.wrapOutput, params.outputFieldName, itemIndex);
     if (Array.isArray(outputItem)) {
       returnData.push(...outputItem);
     } else {
@@ -199,7 +199,8 @@ export async function handleN8nObjectProcessing(context: OperationContext): Prom
   if (allItems.length > 0) {
     const finalResult = await processN8nObjectItems(allItems, targetFormat, options);
     // Use formatOutputItem to handle wrapping based on user preferences
-    const outputItem = formatOutputItem(finalResult, targetFormat, params.outputField, params.wrapOutput, params.outputFieldName);
+    // For n8nObject processing, use itemIndex 0 since we're processing all items together
+    const outputItem = formatOutputItem(finalResult, targetFormat, params.outputField, params.wrapOutput, params.outputFieldName, 0);
     if (Array.isArray(outputItem)) {
       returnData.push(...outputItem);
     } else {
@@ -209,7 +210,7 @@ export async function handleN8nObjectProcessing(context: OperationContext): Prom
     // Handle empty case
     const emptyResult = getEmptyResultForFormat(targetFormat);
     // Use formatOutputItem to handle wrapping based on user preferences
-    const outputItem = formatOutputItem(emptyResult, targetFormat, params.outputField, params.wrapOutput, params.outputFieldName);
+    const outputItem = formatOutputItem(emptyResult, targetFormat, params.outputField, params.wrapOutput, params.outputFieldName, 0);
     if (Array.isArray(outputItem)) {
       returnData.push(...outputItem);
     } else {
@@ -226,10 +227,17 @@ export async function handleN8nObjectProcessing(context: OperationContext): Prom
 export async function handleRegularConversion(context: OperationContext): Promise<INodeExecutionData[][]> {
   const { executeFunctions, items, returnData } = context;
 
-  for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
-    const params = extractConversionParameters(executeFunctions, itemIndex);
+  // Check if inputData is explicitly provided (at itemIndex 0)
+  // If it is, process once without iterating through items from previous node
+  // This prevents paired item data errors when expressions reference different nodes
+  const inputDataParam = executeFunctions.getNodeParameter('inputData', 0, '');
+  const hasExplicitInputData = inputDataParam && inputDataParam !== '';
+
+  if (hasExplicitInputData) {
+    // Process once with itemIndex 0 when explicit inputData is provided
+    const params = extractConversionParameters(executeFunctions, 0);
     const options = buildConversionOptions(params);
-    const inputData = extractInputData(params, items[itemIndex], executeFunctions, itemIndex);
+    const inputData = extractInputData(params, items[0] || { json: {} }, executeFunctions, 0);
 
     // Validate the input data
     const validationResult = validateInput(inputData, params.sourceFormat);
@@ -243,11 +251,37 @@ export async function handleRegularConversion(context: OperationContext): Promis
     const result = await convertData(inputData, params.sourceFormat, params.targetFormat, options);
 
     // Format the output
-    const outputItem = formatOutputItem(result, params.targetFormat, params.outputField, params.wrapOutput, params.outputFieldName);
+    const outputItem = formatOutputItem(result, params.targetFormat, params.outputField, params.wrapOutput, params.outputFieldName, 0);
     if (Array.isArray(outputItem)) {
       returnData.push(...outputItem);
     } else {
       returnData.push(outputItem);
+    }
+  } else {
+    // No explicit input provided, iterate through items from previous node (existing behavior)
+    for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
+      const params = extractConversionParameters(executeFunctions, itemIndex);
+      const options = buildConversionOptions(params);
+      const inputData = extractInputData(params, items[itemIndex], executeFunctions, itemIndex);
+
+      // Validate the input data
+      const validationResult = validateInput(inputData, params.sourceFormat);
+      if (!validationResult.valid) {
+        throw new NodeOperationError(executeFunctions.getNode(), `Invalid input data: ${validationResult.error}`);
+      }
+
+      // Convert the data
+      debug('operationHandlers.ts', `Before convertData call: includeTableHeaders=${options.includeTableHeaders}`, options);
+
+      const result = await convertData(inputData, params.sourceFormat, params.targetFormat, options);
+
+      // Format the output
+      const outputItem = formatOutputItem(result, params.targetFormat, params.outputField, params.wrapOutput, params.outputFieldName, itemIndex);
+      if (Array.isArray(outputItem)) {
+        returnData.push(...outputItem);
+      } else {
+        returnData.push(outputItem);
+      }
     }
   }
 
@@ -410,26 +444,42 @@ async function convertReplacementContent(params: any, options: ConversionOptions
 function collectN8nObjectItems(items: INodeExecutionData[], executeFunctions: IExecuteFunctions): IDataObject[] {
   const allItems: IDataObject[] = [];
 
-  for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
+  // Check if inputData is explicitly provided (at itemIndex 0)
+  // If it is, process once without iterating through items from previous node
+  // This prevents paired item data errors when expressions reference different nodes
+  const explicitInputData = executeFunctions.getNodeParameter('inputData', 0, '');
+  const hasExplicitInputData = explicitInputData && explicitInputData !== '';
+
+  if (hasExplicitInputData) {
+    // Process once with itemIndex 0 when explicit inputData is provided
     let inputData: object;
-
-    // Get the resolved inputData parameter (expressions are automatically resolved)
-    const explicitInputData = executeFunctions.getNodeParameter('inputData', itemIndex, '');
-
-    // If user provided explicit input data, use it
-    if (explicitInputData && explicitInputData !== '') {
-      if (typeof explicitInputData === 'string') {
-        try {
-          inputData = JSON.parse(explicitInputData);
-        } catch (error) {
-          inputData = { value: explicitInputData };
-        }
-      } else {
-        inputData = explicitInputData as object;
+    if (typeof explicitInputData === 'string') {
+      try {
+        inputData = JSON.parse(explicitInputData);
+      } catch (error) {
+        inputData = { value: explicitInputData };
       }
     } else {
-      // No explicit input provided, fall back to previous node data
+      inputData = explicitInputData as object;
+    }
+
+    // If it's an array, add each item, otherwise add the object itself
+    if (Array.isArray(inputData)) {
+      for (const item of inputData) {
+        if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
+          allItems.push(item as IDataObject);
+        }
+      }
+    } else if (!Array.isArray(inputData) && typeof inputData === 'object' && inputData !== null) {
+      // Only add objects, not strings or primitives that might get iterated
+      allItems.push(inputData as IDataObject);
+    }
+  } else {
+    // No explicit input provided, iterate through items from previous node (existing behavior)
+    for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
       const item = items[itemIndex];
+      let inputData: object;
+
       if (item.json && Object.keys(item.json).length > 0) {
         if (item.json.convertedData !== undefined) {
           inputData = item.json.convertedData as object;
@@ -445,18 +495,18 @@ function collectN8nObjectItems(items: INodeExecutionData[], executeFunctions: IE
       } else {
         inputData = {};
       }
-    }
 
-    // If it's an array, add each item, otherwise add the object itself
-    if (Array.isArray(inputData)) {
-      for (const item of inputData) {
-        if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
-          allItems.push(item as IDataObject);
+      // If it's an array, add each item, otherwise add the object itself
+      if (Array.isArray(inputData)) {
+        for (const item of inputData) {
+          if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
+            allItems.push(item as IDataObject);
+          }
         }
+      } else if (!Array.isArray(inputData) && typeof inputData === 'object' && inputData !== null) {
+        // Only add objects, not strings or primitives that might get iterated
+        allItems.push(inputData as IDataObject);
       }
-    } else if (!Array.isArray(inputData) && typeof inputData === 'object' && inputData !== null) {
-      // Only add objects, not strings or primitives that might get iterated
-      allItems.push(inputData as IDataObject);
     }
   }
 
@@ -537,18 +587,20 @@ function extractInputData(params: any, item: INodeExecutionData, executeFunction
   return params.sourceFormat === 'n8nObject' ? {} : '';
 }
 
-export function formatOutputItem(result: any, targetFormat: FormatType, outputField: string, wrapOutput: boolean = true, outputFieldName: string = 'convertedData'): INodeExecutionData | INodeExecutionData[] {
+export function formatOutputItem(result: any, targetFormat: FormatType, outputField: string, wrapOutput: boolean = true, outputFieldName: string = 'convertedData', itemIndex: number = 0): INodeExecutionData | INodeExecutionData[] {
   // If wrapping is disabled, return data directly for all formats
   if (!wrapOutput) {
     // For n8nObject format with arrays, return multiple execution data items
     if (targetFormat === 'n8nObject' && Array.isArray(result)) {
-      return result.map(item => ({
+      return result.map((item, index) => ({
         json: item as any,
+        pairedItem: { item: itemIndex },
       }));
     }
     // For all other formats, return data directly
     return {
       json: result as any,
+      pairedItem: { item: itemIndex },
     };
   }
 
@@ -558,5 +610,6 @@ export function formatOutputItem(result: any, targetFormat: FormatType, outputFi
     json: {
       [outputFieldName]: result
     } as any,
+    pairedItem: { item: itemIndex },
   };
 }

@@ -2,6 +2,12 @@
 
 All notable changes to the n8n-nodes-csv-json-htmltable-converter package will be documented in this file.
 
+## [1.3.8] - 2025-11-09
+
+### Fixed
+- Fixed "Paired item data unavailable" error when multiple converter nodes reference data from earlier nodes using expressions. The node now processes explicit `inputData` once without iterating through items from the connected previous node, preventing pairing errors.
+- Added `pairedItem` references to all output items to maintain proper item linking for downstream nodes.
+
 ## [1.3.7] - 2025-09-10
 
 ### Changed
