@@ -966,6 +966,36 @@ export const nodeDescription: INodeTypeDescription = {
       },
     },
     {
+      displayName: 'Enable Heading Detection',
+      name: 'enableHeadingDetection',
+      type: 'boolean',
+      default: false,
+      description: 'Detect headings or labels before each table to use as identifiers in the output',
+      displayOptions: {
+        show: {
+          operation: ['convert'],
+          sourceFormat: ['html'],
+          multipleItems: [true],
+        },
+      },
+    },
+    {
+      displayName: 'Heading Selector',
+      name: 'headingSelector',
+      type: 'string',
+      default: '',
+      description: 'CSS selector for the element containing the heading text (e.g., "div.term-date span.year"). The element should precede the table in the HTML structure.',
+      placeholder: 'div.year, h2, .table-label',
+      displayOptions: {
+        show: {
+          operation: ['convert'],
+          sourceFormat: ['html'],
+          multipleItems: [true],
+          enableHeadingDetection: [true],
+        },
+      },
+    },
+    {
       displayName: 'Caption Text',
       name: 'captionText',
       type: 'string',

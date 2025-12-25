@@ -28,6 +28,10 @@ export interface ConversionOptions {
   wrapOutput?: boolean;
   outputFieldName?: string;
 
+  // Heading detection options
+  enableHeadingDetection?: boolean;
+  headingSelector?: string;
+
   // Data manipulation options
   sortByField?: string;
   sortOrder?: 'ascending' | 'descending';
@@ -71,6 +75,7 @@ export interface TableData {
   headers: string[];
   rows: string[][];
   caption?: string;
+  heading?: string;
 }
 
 /**

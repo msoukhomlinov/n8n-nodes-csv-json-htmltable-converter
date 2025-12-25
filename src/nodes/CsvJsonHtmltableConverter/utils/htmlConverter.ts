@@ -91,7 +91,7 @@ function extractTableData(html: string, options: ConversionOptions, target: Form
         return true;
       });
       if (foundTable) {
-        processTable($, foundTable, includeHeaders, tables);
+        processTable($, foundTable, includeHeaders, tables, options.headingSelector);
       } else {
         throw new Error(
           `No tables found after heading level h${headingLevel} containing "${
@@ -128,10 +128,10 @@ function extractTableData(html: string, options: ConversionOptions, target: Form
       }
       if (multipleItems) {
         for (const table of matchingTables) {
-          processTable($, table, includeHeaders, tables);
+          processTable($, table, includeHeaders, tables, options.headingSelector);
         }
       } else {
-        processTable($, matchingTables[0], includeHeaders, tables);
+        processTable($, matchingTables[0], includeHeaders, tables, options.headingSelector);
       }
       return tables;
     }
@@ -162,16 +162,16 @@ function extractTableData(html: string, options: ConversionOptions, target: Form
         ) {
           // For 'last-table' preset, process the last table found
           if (options.selectorMode === 'simple' && options.tablePreset === 'last-table') {
-            processTable($, tablesInElement[tablesInElement.length - 1], includeHeaders, tables);
+            processTable($, tablesInElement[tablesInElement.length - 1], includeHeaders, tables, options.headingSelector);
           } else {
-            processTable($, tablesInElement[0], includeHeaders, tables);
+            processTable($, tablesInElement[0], includeHeaders, tables, options.headingSelector);
           }
           return false; // Break each loop after processing the table
         }
 
         // Process all tables if multipleItems is true or we're using "all-tables" preset
         tablesInElement.each((_, table) => {
-          processTable($, table, includeHeaders, tables);
+          processTable($, table, includeHeaders, tables, options.headingSelector);
         });
       }
 
@@ -232,6 +232,94 @@ function extractTableData(html: string, options: ConversionOptions, target: Form
 }
 
 /**
+ * Find the preceding heading element before a table
+ */
+function findPrecedingHeading(
+  $: cheerio.Root,
+  table: cheerio.Element,
+  selector: string,
+): string | null {
+  if (!selector || selector.trim() === '') {
+    return null;
+  }
+
+  try {
+    // Get all elements matching the selector
+    const allMatchingElements = $(selector);
+
+    if (allMatchingElements.length === 0) {
+      return null;
+    }
+
+    // Get all elements in document order to find positions
+    const allElements = $('*');
+    let tablePosition = -1;
+
+    // Find table's position in document order
+    allElements.each((index, elem) => {
+      if (elem === table) {
+        tablePosition = index;
+        return false;
+      }
+      return true;
+    });
+
+    if (tablePosition === -1) {
+      return null;
+    }
+
+    // Find the last matching element that appears before this table
+    let foundHeading: cheerio.Element | null = null;
+    let foundHeadingPosition = -1;
+
+    allMatchingElements.each((_, elem) => {
+      let elemPosition = -1;
+      allElements.each((index, e) => {
+        if (e === elem) {
+          elemPosition = index;
+          return false;
+        }
+        return true;
+      });
+
+      // Check if element comes before table in DOM order
+      if (elemPosition !== -1 && elemPosition < tablePosition && elemPosition > foundHeadingPosition) {
+        foundHeading = elem;
+        foundHeadingPosition = elemPosition;
+      }
+      return true;
+    });
+
+    if (foundHeading) {
+      return $(foundHeading).text().trim();
+    }
+
+    return null;
+  } catch (error) {
+    debug('htmlConverter.ts', `Error finding preceding heading: ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * Sanitize heading text to be a valid JavaScript object key
+ */
+function sanitizeHeadingForKey(heading: string): string {
+  if (!heading) return '';
+
+  // Remove special characters, keep alphanumeric, spaces, hyphens, underscores
+  let sanitized = heading.replace(/[^\w\s-]/g, '');
+
+  // Replace spaces with underscores
+  sanitized = sanitized.replace(/\s+/g, '_');
+
+  // Remove leading/trailing underscores
+  sanitized = sanitized.replace(/^_+|_+$/g, '');
+
+  return sanitized || '';
+}
+
+/**
  * Process a table element and extract its data
  */
 function processTable(
@@ -239,6 +327,7 @@ function processTable(
   table: cheerio.Element,
   includeHeaders: boolean,
   tables: TableData[],
+  headingSelector?: string,
 ): void {
   debug('htmlConverter.ts', `processTable - includeHeaders: ${includeHeaders}`);
 
@@ -248,6 +337,14 @@ function processTable(
     `extractTableData`,
     () => extractor.extractTableData(table, includeHeaders)
   );
+
+  // Detect heading if selector provided
+  if (headingSelector && headingSelector.trim() !== '') {
+    const heading = findPrecedingHeading($, table, headingSelector);
+    if (heading) {
+      tableData.heading = heading;
+    }
+  }
 
   tables.push(tableData);
 }
@@ -363,7 +460,57 @@ export async function htmlToJson(html: string, options: ConversionOptions): Prom
 
   // Only nest output if multipleItems is true AND we have multiple tables
   if (options.multipleItems && tables.length > 1) {
-    // Multiple tables
+    // Check if heading detection is enabled
+    const useHeadingKeys = options.enableHeadingDetection;
+
+    if (useHeadingKeys) {
+      // Use headings as object keys
+      const jsonData: Record<string, any> = {};
+      const headingCounts: Record<string, number> = {};
+
+      tables.forEach((table, tableIndex) => {
+        const tableData = [];
+
+        if (table.headers.length > 0 && includeHeaders) {
+          debug('htmlConverter.ts', `htmlToJson - Including headers for table ${tableIndex + 1}`);
+          for (const row of table.rows) {
+            const rowObj: Record<string, string> = {};
+            table.headers.forEach((header: string, index: number) => {
+              if (index < row.length) {
+                rowObj[header] = row[index];
+              }
+            });
+            tableData.push(rowObj);
+          }
+        } else {
+          debug('htmlConverter.ts', `htmlToJson - Not including headers for table ${tableIndex + 1}`);
+          tableData.push(...table.rows);
+        }
+
+        // Determine the key for this table
+        let key: string;
+        if (table.heading) {
+          const sanitized = sanitizeHeadingForKey(table.heading);
+          key = sanitized || `table_${tableIndex + 1}`;
+
+          // Handle duplicates
+          if (jsonData.hasOwnProperty(key)) {
+            headingCounts[key] = (headingCounts[key] || 1) + 1;
+            key = `${key}_${headingCounts[key]}`;
+          }
+        } else {
+          key = `table_${tableIndex + 1}`;
+        }
+
+        jsonData[key] = tableData;
+      });
+
+      const result = JSON.stringify(jsonData, null, prettyPrint ? 2 : 0);
+      debugSample('htmlConverter.ts', 'htmlToJson - Output JSON (multiple tables with heading keys)', result);
+      return result;
+    }
+
+    // Existing array-based output for when heading detection is disabled
     const jsonData = tables.map((table, tableIndex) => {
       const tableData = [];
       debug(
@@ -489,8 +636,10 @@ export async function htmlToCsv(html: string, options: ConversionOptions): Promi
         csvContent += '\n\n';
       }
 
-      // Add caption as a comment row if present
-      if (table.caption) {
+      // Add heading as a comment row if present, otherwise use caption
+      if (table.heading) {
+        csvContent += `# ${table.heading}\n`;
+      } else if (table.caption) {
         csvContent += `# ${table.caption}\n`;
       }
 
@@ -524,8 +673,10 @@ export async function htmlToCsv(html: string, options: ConversionOptions): Promi
     }, includeHeaders: ${includeHeaders}`,
   );
 
-  // Add caption as a comment row if present
-  if (table.caption) {
+  // Add heading as a comment row if present, otherwise use caption
+  if (table.heading) {
+    csvContent += `# ${table.heading}\n`;
+  } else if (table.caption) {
     csvContent += `# ${table.caption}\n`;
   }
 

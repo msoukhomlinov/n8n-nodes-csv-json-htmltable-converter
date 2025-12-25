@@ -14,6 +14,7 @@ This is an n8n community node that provides seamless bidirectional conversion be
   - Table With Caption (optionally filter by caption text)
   - Table Under Heading (numeric heading level, improved index logic)
   - Custom selectors (Cheerio CSS syntax)
+- **Heading Detection:** When processing multiple tables, detect preceding headings/labels and use them as object keys in output (e.g., `{"2025": [...], "2026": [...]}`)
 - n8nObject output for direct workflow integration
 - Comprehensive input validation and error messages
 - UI/UX enhancements for easier configuration
@@ -40,6 +41,19 @@ npm install n8n-nodes-csv-json-htmltable-converter
 
 ### Convert
 Transform data between HTML, CSV, and JSON formats. Use advanced table selection presets or custom selectors for precise extraction.
+
+#### Heading Detection for Multiple Tables
+When processing multiple tables from HTML, you can enable heading detection to use preceding elements as identifiers in the output:
+
+1. Enable **Multiple Tables/Objects**
+2. Enable **Enable Heading Detection**
+3. Specify a **Heading Selector** (CSS selector, e.g., `div.term-date span.year`)
+
+**Output Format:**
+- **Without heading detection:** `[{data: [...]}, {data: [...]}]`
+- **With heading detection:** `{"2025": [...], "2026": [...]}`
+
+The heading selector should target elements that appear before each table in the HTML structure. If no heading is found, tables fall back to `table_1`, `table_2`, etc. Duplicate headings are automatically handled with numeric suffixes.
 
 ### Replace
 Replace an existing HTML table in a document with new content (HTML, CSV, or JSON). Supports all table selection presets and advanced selectors.
@@ -119,6 +133,7 @@ Output HTML:
 
 - **n8nObject output:** Directly outputs JavaScript objects for use in n8n workflows. Single-item arrays are unwrapped; multi-item arrays are wrapped in the output field.
 - **Output field:** All results are wrapped in the specified output field (default: `convertedData`), except for n8nObject output, which is always in the `json` property.
+- **Heading-based keys:** When heading detection is enabled for multiple tables, output uses heading text as object keys instead of array indices, making data more meaningful and easier to access.
 - **Chaining:** Improved detection and handling of n8nObject input/output for seamless chaining between nodes.
 
 ### Breaking Changes and Migration Notes

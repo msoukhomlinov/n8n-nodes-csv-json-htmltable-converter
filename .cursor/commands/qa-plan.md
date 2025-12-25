@@ -1,0 +1,1 @@
+QA this plan for accuracy and completeness. If it's incorrect, incomplete or does not align with intent or best practices: fix and don't explain. If it does not need any fixes: reply with 'ok' and nothing else.

@@ -513,6 +513,14 @@ function buildConversionOptions(params: ReturnType<typeof extractConversionParam
     }
   }
 
+  // Heading detection options
+  if (params.sourceFormat === 'html' && params.multipleItems) {
+    options.enableHeadingDetection = params.enableHeadingDetection;
+    if (params.enableHeadingDetection) {
+      options.headingSelector = params.headingSelector;
+    }
+  }
+
   // Options specific to certain target formats
   if (['json', 'html', 'n8nObject'].includes(params.targetFormat)) {
     options.prettyPrint = params.prettyPrint;
