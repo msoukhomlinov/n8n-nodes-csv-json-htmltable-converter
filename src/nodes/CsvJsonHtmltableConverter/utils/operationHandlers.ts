@@ -514,10 +514,17 @@ function buildConversionOptions(params: ReturnType<typeof extractConversionParam
   }
 
   // Heading detection options
-  if (params.sourceFormat === 'html' && params.multipleItems) {
-    options.enableHeadingDetection = params.enableHeadingDetection;
-    if (params.enableHeadingDetection) {
-      options.headingSelector = params.headingSelector;
+  if (params.sourceFormat === 'html') {
+    // Auto-enable heading detection for "all tables" preset
+    if (params.selectorMode === 'simple' && params.tablePreset === 'all-tables') {
+      options.enableHeadingDetection = true;
+      // If heading selector is blank, it will default to h1-h5 in findPrecedingHeadingHierarchy
+      options.headingSelector = params.headingSelector || '';
+    } else if (params.multipleItems) {
+      options.enableHeadingDetection = params.enableHeadingDetection;
+      if (params.enableHeadingDetection) {
+        options.headingSelector = params.headingSelector;
+      }
     }
   }
 

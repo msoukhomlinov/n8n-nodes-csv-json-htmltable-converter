@@ -2,6 +2,14 @@
 
 All notable changes to the n8n-nodes-csv-json-htmltable-converter package will be documented in this file.
 
+
+## [1.6.0] - 2026-01-12
+
+### Added
+- **Automatic Heading Detection for "All Tables" Preset:** Heading detection is now automatically enabled when using the "All Tables" preset, regardless of the "Multiple Tables/Objects" setting. If no heading selector is provided, the system defaults to checking h1-h5 headings.
+- **Heading Hierarchy Support:** Tables now preserve heading hierarchy (h1 → h2 → h3, etc.) in the output. Tables under h2 that come after h1 are nested under the h1 section in JSON output. CSV output shows the full heading path as comments (e.g., `# Section 1 > Subsection 1.1`).
+
+
 ## [1.5.0] - 2025-12-24
 
 ### Added

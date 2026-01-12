@@ -977,6 +977,9 @@ export const nodeDescription: INodeTypeDescription = {
           sourceFormat: ['html'],
           multipleItems: [true],
         },
+        hide: {
+          tablePreset: ['all-tables'],
+        },
       },
     },
     {
@@ -992,6 +995,25 @@ export const nodeDescription: INodeTypeDescription = {
           sourceFormat: ['html'],
           multipleItems: [true],
           enableHeadingDetection: [true],
+        },
+        hide: {
+          tablePreset: ['all-tables'],
+        },
+      },
+    },
+    {
+      displayName: 'Heading Selector',
+      name: 'headingSelector',
+      type: 'string',
+      default: '',
+      description: 'CSS selector for headings preceding tables. Default (blank): checks &lt;h1&gt;, &lt;h2&gt;, &lt;h3&gt;, &lt;h4&gt;, &lt;h5&gt; elements and preserves their hierarchy in the output.',
+      placeholder: 'Default: h1-h5. Custom: div.year, .table-label',
+      displayOptions: {
+        show: {
+          operation: ['convert'],
+          sourceFormat: ['html'],
+          selectorMode: ['simple'],
+          tablePreset: ['all-tables'],
         },
       },
     },

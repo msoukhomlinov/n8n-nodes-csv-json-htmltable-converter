@@ -69,13 +69,22 @@ export interface ConversionOptions {
 }
 
 /**
+ * Represents heading information with level and text
+ */
+export interface HeadingInfo {
+  level: number;  // 1-5 for h1-h5
+  text: string;
+}
+
+/**
  * Represents extracted table data from HTML
  */
 export interface TableData {
   headers: string[];
   rows: string[][];
   caption?: string;
-  heading?: string;
+  heading?: string;  // Deprecated, kept for backward compatibility
+  headingPath?: HeadingInfo[];  // New: full hierarchy of headings
 }
 
 /**
