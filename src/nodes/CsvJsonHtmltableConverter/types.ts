@@ -36,6 +36,7 @@ export interface ConversionOptions {
   sortByField?: string;
   sortOrder?: 'ascending' | 'descending';
   fields?: string;
+  cellContentFormat?: 'text' | 'markdown';
 
   // Table styling options
   tableClass?: string;

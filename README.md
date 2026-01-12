@@ -58,6 +58,20 @@ If no heading is found, tables fall back to `table_1`, `table_2`, etc. When a he
 
 For other presets with **Multiple Tables/Objects** enabled, heading detection can be manually enabled via the **Enable Heading Detection** toggle.
 
+#### Cell Content Format (Data Manipulation)
+When converting from HTML, you can control how rich content inside table cells is extracted:
+
+1. Enable **Show Data Manipulation**
+2. Set **Cell Content Format**:
+   - **Plain Text** (default): Strips all HTML, returning only text
+   - **Markdown**: Preserves structure using markdown syntax
+
+**Markdown conversion examples:**
+- `<ul><li>Item 1</li><li>Item 2</li></ul>` → `- Item 1\n- Item 2`
+- `<strong>bold</strong>` → `**bold**`
+- `<a href="url">link</a>` → `[link](url)`
+- `<code>code</code>` → `` `code` ``
+
 ### Replace
 Replace an existing HTML table in a document with new content (HTML, CSV, or JSON). Supports all table selection presets and advanced selectors.
 

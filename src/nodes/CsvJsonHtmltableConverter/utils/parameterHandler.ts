@@ -449,6 +449,13 @@ export const PARAMETER_DEFINITIONS = {
     defaultValue: '',
   } as ParameterDefinition<string>,
 
+  cellContentFormat: {
+    name: 'cellContentFormat',
+    type: 'enum' as const,
+    defaultValue: 'text',
+    enumValues: ['text', 'markdown'] as const,
+  } as ParameterDefinition<'text' | 'markdown'>,
+
   // Output wrapping parameters
   wrapOutput: {
     name: 'wrapOutput',
@@ -740,6 +747,7 @@ export function extractConversionParameters(executeFunctions: IExecuteFunctions,
     sortByField: PARAMETER_DEFINITIONS.sortByField,
     sortOrder: PARAMETER_DEFINITIONS.sortOrder,
     fields: PARAMETER_DEFINITIONS.fields,
+    cellContentFormat: PARAMETER_DEFINITIONS.cellContentFormat,
     wrapOutput: PARAMETER_DEFINITIONS.wrapOutput,
     outputFieldName: PARAMETER_DEFINITIONS.outputFieldName,
   });
@@ -765,6 +773,7 @@ export function extractConversionParameters(executeFunctions: IExecuteFunctions,
     sortByField: params.sortByField.value as string,
     sortOrder: params.sortOrder.value as 'ascending' | 'descending',
     fields: params.fields.value as string,
+    cellContentFormat: params.cellContentFormat.value as 'text' | 'markdown',
     wrapOutput: params.wrapOutput.value as boolean,
     outputFieldName: params.outputFieldName.value as string,
   };

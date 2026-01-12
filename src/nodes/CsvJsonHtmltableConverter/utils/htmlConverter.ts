@@ -12,7 +12,7 @@ import { getPresetSelectorsLegacy, findTablesAfterElement } from './tableSelecto
 import type { TableUnderHeadingConfig, TableWithCaptionConfig } from '../types';
 import { ValidationError } from './errors';
 import { sanitizeHtml, validateHtmlInput } from './htmlSanitizer';
-import { TableExtractor, DOMPerformanceMonitor } from './domOptimizer';
+import { TableExtractor, DOMPerformanceMonitor, TableExtractorOptions } from './domOptimizer';
 
 
 /**
@@ -91,7 +91,7 @@ function extractTableData(html: string, options: ConversionOptions, target: Form
         return true;
       });
       if (foundTable) {
-        processTable($, foundTable, includeHeaders, tables, options.enableHeadingDetection, options.headingSelector);
+        processTable($, foundTable, includeHeaders, tables, options.enableHeadingDetection, options.headingSelector, options.cellContentFormat);
       } else {
         throw new Error(
           `No tables found after heading level h${headingLevel} containing "${
@@ -128,10 +128,10 @@ function extractTableData(html: string, options: ConversionOptions, target: Form
       }
       if (multipleItems) {
         for (const table of matchingTables) {
-          processTable($, table, includeHeaders, tables, options.enableHeadingDetection, options.headingSelector);
+          processTable($, table, includeHeaders, tables, options.enableHeadingDetection, options.headingSelector, options.cellContentFormat);
         }
       } else {
-        processTable($, matchingTables[0], includeHeaders, tables, options.enableHeadingDetection, options.headingSelector);
+        processTable($, matchingTables[0], includeHeaders, tables, options.enableHeadingDetection, options.headingSelector, options.cellContentFormat);
       }
       return tables;
     }
@@ -162,16 +162,16 @@ function extractTableData(html: string, options: ConversionOptions, target: Form
         ) {
           // For 'last-table' preset, process the last table found
           if (options.selectorMode === 'simple' && options.tablePreset === 'last-table') {
-            processTable($, tablesInElement[tablesInElement.length - 1], includeHeaders, tables, options.enableHeadingDetection, options.headingSelector);
+            processTable($, tablesInElement[tablesInElement.length - 1], includeHeaders, tables, options.enableHeadingDetection, options.headingSelector, options.cellContentFormat);
           } else {
-            processTable($, tablesInElement[0], includeHeaders, tables, options.enableHeadingDetection, options.headingSelector);
+            processTable($, tablesInElement[0], includeHeaders, tables, options.enableHeadingDetection, options.headingSelector, options.cellContentFormat);
           }
           return false; // Break each loop after processing the table
         }
 
         // Process all tables if multipleItems is true or we're using "all-tables" preset
         tablesInElement.each((_, table) => {
-          processTable($, table, includeHeaders, tables, options.enableHeadingDetection, options.headingSelector);
+          processTable($, table, includeHeaders, tables, options.enableHeadingDetection, options.headingSelector, options.cellContentFormat);
         });
       }
 
@@ -407,11 +407,15 @@ function processTable(
   tables: TableData[],
   enableHeadingDetection?: boolean,
   headingSelector?: string,
+  cellContentFormat?: 'text' | 'markdown',
 ): void {
-  debug('htmlConverter.ts', `processTable - includeHeaders: ${includeHeaders}`);
+  debug('htmlConverter.ts', `processTable - includeHeaders: ${includeHeaders}, cellContentFormat: ${cellContentFormat || 'text'}`);
 
   // Use optimized table extractor with performance monitoring
-  const extractor = new TableExtractor($.html());
+  const extractorOptions: TableExtractorOptions = {
+    cellContentFormat: cellContentFormat || 'text',
+  };
+  const extractor = new TableExtractor($.html(), extractorOptions);
   const tableData = DOMPerformanceMonitor.timeOperation(
     `extractTableData`,
     () => extractor.extractTableData(table, includeHeaders)

@@ -2,6 +2,21 @@
 
 All notable changes to the n8n-nodes-csv-json-htmltable-converter package will be documented in this file.
 
+## [1.7.0] - 2026-01-12
+
+### Added
+- **Cell Content Format Option:** New option under "Show Data Manipulation" when converting from HTML. Choose between:
+  - **Plain Text** (default): Strips all HTML tags, returning only text content
+  - **Markdown**: Preserves rich content structure using markdown syntax:
+    - Lists (`<ul>`, `<ol>`) → `- item` or `1. item`
+    - Bold (`<strong>`, `<b>`) → `**text**`
+    - Italic (`<em>`, `<i>`) → `*text*`
+    - Links (`<a>`) → `[text](url)`
+    - Code (`<code>`) → `` `text` ``
+    - Line breaks (`<br>`) → newlines
+    - Strikethrough (`<del>`, `<s>`) → `~~text~~`
+    - Images (`<img>`) → `![alt](src)`
+
 
 ## [1.6.0] - 2026-01-12
 

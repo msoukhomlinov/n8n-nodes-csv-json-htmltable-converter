@@ -1091,6 +1091,24 @@ export const nodeDescription: INodeTypeDescription = {
         },
       },
     },
+    {
+      displayName: 'Cell Content Format',
+      name: 'cellContentFormat',
+      type: 'options',
+      options: [
+        { name: 'Plain Text', value: 'text' },
+        { name: 'Markdown', value: 'markdown' },
+      ],
+      default: 'text',
+      description: 'How to format rich content (lists, links, formatting) inside table cells. Plain Text strips all HTML (default). Markdown preserves structure using markdown syntax (bullets become "- item", bold becomes "**text**", etc.).',
+      displayOptions: {
+        show: {
+          operation: ['convert'],
+          sourceFormat: ['html'],
+          showDataManipulation: [true],
+        },
+      },
+    },
     // Output Wrapping Options
     {
       displayName: 'Wrap Output',

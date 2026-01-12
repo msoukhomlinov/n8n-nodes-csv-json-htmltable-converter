@@ -496,6 +496,9 @@ function buildConversionOptions(params: ReturnType<typeof extractConversionParam
   if (params.fields) {
     options.fields = params.fields;
   }
+  if (params.sourceFormat === 'html' && params.cellContentFormat) {
+    options.cellContentFormat = params.cellContentFormat;
+  }
 
   // Common options for all formats
   if (params.sourceFormat === 'n8nObject' && params.targetFormat !== 'html') {
