@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio';
 import * as Papa from 'papaparse';
 // Removed @minify-html/node import - using simpleHtmlMinify instead
-import type { ConversionOptions, TableData, FormatType } from '../types';
+import type { ConversionOptions, TableData, FormatType, HeadingInfo } from '../types';
 import {
   DEFAULT_INCLUDE_HEADERS,
   DEFAULT_PRETTY_PRINT,
@@ -12,7 +12,7 @@ import { getPresetSelectorsLegacy, findTablesAfterElement } from './tableSelecto
 import type { TableUnderHeadingConfig, TableWithCaptionConfig } from '../types';
 import { ValidationError } from './errors';
 import { sanitizeHtml, validateHtmlInput } from './htmlSanitizer';
-import { TableExtractor, DOMPerformanceMonitor } from './domOptimizer';
+import { TableExtractor, DOMPerformanceMonitor, TableExtractorOptions } from './domOptimizer';
 
 
 /**
@@ -91,7 +91,7 @@ function extractTableData(html: string, options: ConversionOptions, target: Form
         return true;
       });
       if (foundTable) {
-        processTable($, foundTable, includeHeaders, tables);
+        processTable($, foundTable, includeHeaders, tables, options.enableHeadingDetection, options.headingSelector, options.cellContentFormat);
       } else {
         throw new Error(
           `No tables found after heading level h${headingLevel} containing "${
@@ -128,10 +128,10 @@ function extractTableData(html: string, options: ConversionOptions, target: Form
       }
       if (multipleItems) {
         for (const table of matchingTables) {
-          processTable($, table, includeHeaders, tables);
+          processTable($, table, includeHeaders, tables, options.enableHeadingDetection, options.headingSelector, options.cellContentFormat);
         }
       } else {
-        processTable($, matchingTables[0], includeHeaders, tables);
+        processTable($, matchingTables[0], includeHeaders, tables, options.enableHeadingDetection, options.headingSelector, options.cellContentFormat);
       }
       return tables;
     }
@@ -162,16 +162,16 @@ function extractTableData(html: string, options: ConversionOptions, target: Form
         ) {
           // For 'last-table' preset, process the last table found
           if (options.selectorMode === 'simple' && options.tablePreset === 'last-table') {
-            processTable($, tablesInElement[tablesInElement.length - 1], includeHeaders, tables);
+            processTable($, tablesInElement[tablesInElement.length - 1], includeHeaders, tables, options.enableHeadingDetection, options.headingSelector, options.cellContentFormat);
           } else {
-            processTable($, tablesInElement[0], includeHeaders, tables);
+            processTable($, tablesInElement[0], includeHeaders, tables, options.enableHeadingDetection, options.headingSelector, options.cellContentFormat);
           }
           return false; // Break each loop after processing the table
         }
 
         // Process all tables if multipleItems is true or we're using "all-tables" preset
         tablesInElement.each((_, table) => {
-          processTable($, table, includeHeaders, tables);
+          processTable($, table, includeHeaders, tables, options.enableHeadingDetection, options.headingSelector, options.cellContentFormat);
         });
       }
 
@@ -232,6 +232,172 @@ function extractTableData(html: string, options: ConversionOptions, target: Form
 }
 
 /**
+ * Find the preceding heading element before a table
+ */
+function findPrecedingHeading(
+  $: cheerio.Root,
+  table: cheerio.Element,
+  selector: string,
+): string | null {
+  if (!selector || selector.trim() === '') {
+    return null;
+  }
+
+  try {
+    // Get all elements matching the selector
+    const allMatchingElements = $(selector);
+
+    if (allMatchingElements.length === 0) {
+      return null;
+    }
+
+    // Get all elements in document order to find positions
+    const allElements = $('*');
+    let tablePosition = -1;
+
+    // Find table's position in document order
+    allElements.each((index, elem) => {
+      if (elem === table) {
+        tablePosition = index;
+        return false;
+      }
+      return true;
+    });
+
+    if (tablePosition === -1) {
+      return null;
+    }
+
+    // Find the last matching element that appears before this table
+    let foundHeading: cheerio.Element | null = null;
+    let foundHeadingPosition = -1;
+
+    allMatchingElements.each((_, elem) => {
+      let elemPosition = -1;
+      allElements.each((index, e) => {
+        if (e === elem) {
+          elemPosition = index;
+          return false;
+        }
+        return true;
+      });
+
+      // Check if element comes before table in DOM order
+      if (elemPosition !== -1 && elemPosition < tablePosition && elemPosition > foundHeadingPosition) {
+        foundHeading = elem;
+        foundHeadingPosition = elemPosition;
+      }
+      return true;
+    });
+
+    if (foundHeading) {
+      return $(foundHeading).text().trim();
+    }
+
+    return null;
+  } catch (error) {
+    debug('htmlConverter.ts', `Error finding preceding heading: ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * Find all preceding headings (h1-h5) before a table and return them as a hierarchy
+ */
+function findPrecedingHeadingHierarchy(
+  $: cheerio.Root,
+  table: cheerio.Element,
+  selector?: string,
+): HeadingInfo[] {
+  const headingPath: HeadingInfo[] = [];
+
+  // Get table position in document
+  const allElements = $('*');
+  let tablePosition = -1;
+  allElements.each((index, elem) => {
+    if (elem === table) {
+      tablePosition = index;
+      return false;
+    }
+    return true;
+  });
+
+  if (tablePosition === -1) return [];
+
+  // Find all h1-h5 headings before the table, in document order
+  const headingLevels = [1, 2, 3, 4, 5];
+  const foundHeadings: Array<{position: number, level: number, text: string}> = [];
+
+  headingLevels.forEach(level => {
+    $(`h${level}`).each((_, heading) => {
+      let headingPosition = -1;
+      allElements.each((index, elem) => {
+        if (elem === heading) {
+          headingPosition = index;
+          return false;
+        }
+        return true;
+      });
+
+      if (headingPosition !== -1 && headingPosition < tablePosition) {
+        foundHeadings.push({
+          position: headingPosition,
+          level,
+          text: $(heading).text().trim()
+        });
+      }
+    });
+  });
+
+  // Sort by position and build hierarchy (only include headings that are in proper order)
+  foundHeadings.sort((a, b) => a.position - b.position);
+
+  // Build path: maintain proper hierarchy
+  // If h2 comes after h1, include both. If h3 comes after h2, include all three.
+  // If a higher level heading appears (e.g., h2 after h3), reset from that level
+  let lastLevel = 0;
+  foundHeadings.forEach(h => {
+    if (h.level === 1) {
+      // New top-level section - clear and start fresh
+      headingPath.length = 0;
+      headingPath.push({ level: h.level, text: h.text });
+      lastLevel = 1;
+    } else if (h.level > lastLevel) {
+      // Next level in hierarchy - add it
+      headingPath.push({ level: h.level, text: h.text });
+      lastLevel = h.level;
+    } else if (h.level <= lastLevel) {
+      // Same or higher level - remove deeper levels and add this one
+      while (headingPath.length > 0 && headingPath[headingPath.length - 1].level >= h.level) {
+        headingPath.pop();
+      }
+      headingPath.push({ level: h.level, text: h.text });
+      lastLevel = h.level;
+    }
+  });
+
+  return headingPath;
+}
+
+/**
+ * Sanitize heading text to be a valid JavaScript object key
+ */
+function sanitizeHeadingForKey(heading: string): string {
+  if (!heading) return '';
+
+  // Remove special characters, keep alphanumeric, spaces, hyphens, underscores
+  let sanitized = heading.replace(/[^\w\s-]/g, '');
+
+  // Replace spaces with underscores
+  sanitized = sanitized.replace(/\s+/g, '_');
+
+  // Remove leading/trailing underscores
+  sanitized = sanitized.replace(/^_+|_+$/g, '');
+
+  return sanitized || '';
+}
+
+/**
  * Process a table element and extract its data
  */
 function processTable(
@@ -239,15 +405,37 @@ function processTable(
   table: cheerio.Element,
   includeHeaders: boolean,
   tables: TableData[],
+  enableHeadingDetection?: boolean,
+  headingSelector?: string,
+  cellContentFormat?: 'text' | 'markdown',
 ): void {
-  debug('htmlConverter.ts', `processTable - includeHeaders: ${includeHeaders}`);
+  debug('htmlConverter.ts', `processTable - includeHeaders: ${includeHeaders}, cellContentFormat: ${cellContentFormat || 'text'}`);
 
   // Use optimized table extractor with performance monitoring
-  const extractor = new TableExtractor($.html());
+  const extractorOptions: TableExtractorOptions = {
+    cellContentFormat: cellContentFormat || 'text',
+  };
+  const extractor = new TableExtractor($.html(), extractorOptions);
   const tableData = DOMPerformanceMonitor.timeOperation(
     `extractTableData`,
     () => extractor.extractTableData(table, includeHeaders)
   );
+
+  // Detect heading hierarchy if enabled
+  if (enableHeadingDetection) {
+    const headingPath = findPrecedingHeadingHierarchy($, table, headingSelector);
+    if (headingPath.length > 0) {
+      tableData.headingPath = headingPath;
+      // Set heading for backward compatibility (last item in path)
+      tableData.heading = headingPath[headingPath.length - 1].text;
+    }
+  } else if (headingSelector && headingSelector.trim() !== '') {
+    // Legacy behaviour: use single heading if selector provided but detection not enabled
+    const heading = findPrecedingHeading($, table, headingSelector);
+    if (heading) {
+      tableData.heading = heading;
+    }
+  }
 
   tables.push(tableData);
 }
@@ -362,8 +550,95 @@ export async function htmlToJson(html: string, options: ConversionOptions): Prom
   }
 
   // Only nest output if multipleItems is true AND we have multiple tables
-  if (options.multipleItems && tables.length > 1) {
-    // Multiple tables
+  // OR if heading detection is enabled and we have multiple tables (for "all tables" preset)
+  if ((options.multipleItems && tables.length > 1) || (options.enableHeadingDetection && tables.length > 1)) {
+    // Check if heading detection is enabled
+    const useHeadingKeys = options.enableHeadingDetection;
+
+    if (useHeadingKeys) {
+      // Use headings as object keys with nested structure
+      const jsonData: Record<string, any> = {};
+
+      tables.forEach((table, tableIndex) => {
+        const tableData = [];
+
+        if (table.headers.length > 0 && includeHeaders) {
+          debug('htmlConverter.ts', `htmlToJson - Including headers for table ${tableIndex + 1}`);
+          for (const row of table.rows) {
+            const rowObj: Record<string, string> = {};
+            table.headers.forEach((header: string, index: number) => {
+              if (index < row.length) {
+                rowObj[header] = row[index];
+              }
+            });
+            tableData.push(rowObj);
+          }
+        } else {
+          debug('htmlConverter.ts', `htmlToJson - Not including headers for table ${tableIndex + 1}`);
+          tableData.push(...table.rows);
+        }
+
+        if (table.headingPath && table.headingPath.length > 0) {
+          // Build nested structure based on heading hierarchy
+          let current = jsonData;
+
+          for (let i = 0; i < table.headingPath.length; i++) {
+            const headingInfo = table.headingPath[i];
+            const key = sanitizeHeadingForKey(headingInfo.text);
+
+            if (i === table.headingPath.length - 1) {
+              // Last level - this is where the table data goes
+              if (!current[key]) {
+                current[key] = [];
+              }
+              // Handle multiple tables with same heading path
+              if (Array.isArray(current[key])) {
+                current[key].push(...tableData);
+              } else if (typeof current[key] === 'object') {
+                // Key exists as object (has subsections) - add data to _data property
+                if (!current[key]._data) {
+                  current[key]._data = [];
+                }
+                current[key]._data.push(...tableData);
+              }
+            } else {
+              // Intermediate level - create or traverse nested object
+              if (!current[key]) {
+                current[key] = {};
+              } else if (Array.isArray(current[key])) {
+                // Key exists as array - convert to object with _data property
+                const existingData = current[key];
+                current[key] = { _data: existingData };
+              }
+              current = current[key];
+            }
+          }
+        } else if (table.heading) {
+          // Fallback to single heading (backward compatibility)
+          const key = sanitizeHeadingForKey(table.heading);
+          if (!jsonData[key]) {
+            jsonData[key] = [];
+          }
+          if (Array.isArray(jsonData[key])) {
+            jsonData[key].push(...tableData);
+          } else if (typeof jsonData[key] === 'object') {
+            if (!jsonData[key]._data) {
+              jsonData[key]._data = [];
+            }
+            jsonData[key]._data.push(...tableData);
+          }
+        } else {
+          // No heading - use table index
+          jsonData[`table_${tableIndex + 1}`] = tableData;
+        }
+      });
+
+      const result = JSON.stringify(jsonData, null, prettyPrint ? 2 : 0);
+      debugSample('htmlConverter.ts', 'htmlToJson - Output JSON (multiple tables with heading keys)', result);
+      return result;
+    }
+
+    // Existing array-based output for when heading detection is disabled
     const jsonData = tables.map((table, tableIndex) => {
       const tableData = [];
       debug(
@@ -489,8 +764,14 @@ export async function htmlToCsv(html: string, options: ConversionOptions): Promi
         csvContent += '\n\n';
       }
 
-      // Add caption as a comment row if present
-      if (table.caption) {
+      // Add heading as a comment row if present, otherwise use caption
+      if (table.headingPath && table.headingPath.length > 0) {
+        // Output full hierarchy as comment
+        const headingPathStr = table.headingPath.map(h => h.text).join(' > ');
+        csvContent += `# ${headingPathStr}\n`;
+      } else if (table.heading) {
+        csvContent += `# ${table.heading}\n`;
+      } else if (table.caption) {
         csvContent += `# ${table.caption}\n`;
       }
 
@@ -524,8 +805,14 @@ export async function htmlToCsv(html: string, options: ConversionOptions): Promi
     }, includeHeaders: ${includeHeaders}`,
   );
 
-  // Add caption as a comment row if present
-  if (table.caption) {
+  // Add heading as a comment row if present, otherwise use caption
+  if (table.headingPath && table.headingPath.length > 0) {
+    // Output full hierarchy as comment
+    const headingPathStr = table.headingPath.map(h => h.text).join(' > ');
+    csvContent += `# ${headingPathStr}\n`;
+  } else if (table.heading) {
+    csvContent += `# ${table.heading}\n`;
+  } else if (table.caption) {
     csvContent += `# ${table.caption}\n`;
   }
 

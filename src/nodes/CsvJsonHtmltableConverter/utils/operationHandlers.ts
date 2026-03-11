@@ -496,6 +496,9 @@ function buildConversionOptions(params: ReturnType<typeof extractConversionParam
   if (params.fields) {
     options.fields = params.fields;
   }
+  if (params.sourceFormat === 'html' && params.cellContentFormat) {
+    options.cellContentFormat = params.cellContentFormat;
+  }
 
   // Common options for all formats
   if (params.sourceFormat === 'n8nObject' && params.targetFormat !== 'html') {
@@ -510,6 +513,21 @@ function buildConversionOptions(params: ReturnType<typeof extractConversionParam
     } else {
       options.includeTableHeaders = true;
       debug('operationHandlers.ts', `Other target format: includeTableHeaders=${options.includeTableHeaders}`);
+    }
+  }
+
+  // Heading detection options
+  if (params.sourceFormat === 'html') {
+    // Auto-enable heading detection for "all tables" preset
+    if (params.selectorMode === 'simple' && params.tablePreset === 'all-tables') {
+      options.enableHeadingDetection = true;
+      // If heading selector is blank, it will default to h1-h5 in findPrecedingHeadingHierarchy
+      options.headingSelector = params.headingSelector || '';
+    } else if (params.multipleItems) {
+      options.enableHeadingDetection = params.enableHeadingDetection;
+      if (params.enableHeadingDetection) {
+        options.headingSelector = params.headingSelector;
+      }
     }
   }
 

@@ -416,6 +416,19 @@ export const PARAMETER_DEFINITIONS = {
     defaultValue: false,
   } as ParameterDefinition<boolean>,
 
+  // Heading detection parameters
+  enableHeadingDetection: {
+    name: 'enableHeadingDetection',
+    type: 'boolean' as const,
+    defaultValue: false,
+  } as ParameterDefinition<boolean>,
+
+  headingSelector: {
+    name: 'headingSelector',
+    type: 'string' as const,
+    defaultValue: '',
+  } as ParameterDefinition<string>,
+
   // Data manipulation parameters
   sortByField: {
     name: 'sortByField',
@@ -435,6 +448,13 @@ export const PARAMETER_DEFINITIONS = {
     type: 'string' as const,
     defaultValue: '',
   } as ParameterDefinition<string>,
+
+  cellContentFormat: {
+    name: 'cellContentFormat',
+    type: 'enum' as const,
+    defaultValue: 'text',
+    enumValues: ['text', 'markdown'] as const,
+  } as ParameterDefinition<'text' | 'markdown'>,
 
   // Output wrapping parameters
   wrapOutput: {
@@ -720,11 +740,14 @@ export function extractConversionParameters(executeFunctions: IExecuteFunctions,
     tableSelector: PARAMETER_DEFINITIONS.tableSelector,
     elementSelector: PARAMETER_DEFINITIONS.elementSelector,
     multipleItems: PARAMETER_DEFINITIONS.multipleItems,
+    enableHeadingDetection: PARAMETER_DEFINITIONS.enableHeadingDetection,
+    headingSelector: PARAMETER_DEFINITIONS.headingSelector,
     includeTableHeaders: PARAMETER_DEFINITIONS.includeTableHeaders,
     prettyPrint: PARAMETER_DEFINITIONS.prettyPrint,
     sortByField: PARAMETER_DEFINITIONS.sortByField,
     sortOrder: PARAMETER_DEFINITIONS.sortOrder,
     fields: PARAMETER_DEFINITIONS.fields,
+    cellContentFormat: PARAMETER_DEFINITIONS.cellContentFormat,
     wrapOutput: PARAMETER_DEFINITIONS.wrapOutput,
     outputFieldName: PARAMETER_DEFINITIONS.outputFieldName,
   });
@@ -743,11 +766,14 @@ export function extractConversionParameters(executeFunctions: IExecuteFunctions,
     tableSelector: params.tableSelector.value as string,
     elementSelector: params.elementSelector.value as string,
     multipleItems: params.multipleItems.value as boolean,
+    enableHeadingDetection: params.enableHeadingDetection.value as boolean,
+    headingSelector: params.headingSelector.value as string,
     includeTableHeaders: params.includeTableHeaders.value as boolean,
     prettyPrint: params.prettyPrint.value as boolean,
     sortByField: params.sortByField.value as string,
     sortOrder: params.sortOrder.value as 'ascending' | 'descending',
     fields: params.fields.value as string,
+    cellContentFormat: params.cellContentFormat.value as 'text' | 'markdown',
     wrapOutput: params.wrapOutput.value as boolean,
     outputFieldName: params.outputFieldName.value as string,
   };

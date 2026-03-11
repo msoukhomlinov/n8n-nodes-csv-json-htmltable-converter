@@ -5,15 +5,21 @@
 import * as cheerio from 'cheerio';
 import type { TableData } from '../types';
 
+export interface TableExtractorOptions {
+  cellContentFormat?: 'text' | 'markdown';
+}
+
 /**
  * Optimized table extraction with caching and efficient selectors
  */
 export class TableExtractor {
   private $: cheerio.Root;
   private cache = new Map<string, cheerio.Cheerio>();
+  private cellContentFormat: 'text' | 'markdown';
 
-  constructor(html: string) {
+  constructor(html: string, options?: TableExtractorOptions) {
     this.$ = cheerio.load(html, { xmlMode: true });
+    this.cellContentFormat = options?.cellContentFormat || 'text';
   }
 
   /**
@@ -79,7 +85,7 @@ export class TableExtractor {
         const thCells = firstRow.find('th');
         if (thCells.length > 0) {
           thCells.each((_, cell) => {
-            headers.push(this.$(cell).text().trim());
+            headers.push(this.extractCellContent(this.$(cell)));
           });
           hasHeader = true;
           headerRowIndex = 0;
@@ -118,8 +124,127 @@ export class TableExtractor {
     // Get all cells (th and td) in one query
     const cells = $row.find('th, td');
     cells.each((_, cell) => {
-      targetArray.push(this.$(cell).text().trim());
+      targetArray.push(this.extractCellContent(this.$(cell)));
     });
+  }
+
+  /**
+   * Extract content from a cell based on cellContentFormat setting
+   */
+  private extractCellContent($cell: cheerio.Cheerio): string {
+    if (this.cellContentFormat === 'markdown') {
+      return this.htmlToMarkdown($cell).trim();
+    }
+    return $cell.text().trim();
+  }
+
+  /**
+   * Convert HTML content to markdown representation
+   */
+  private htmlToMarkdown($element: cheerio.Cheerio): string {
+    const $ = this.$;
+    let result = '';
+
+    // Process each child node
+    $element.contents().each((_, node) => {
+      if (node.type === 'text') {
+        // Text node - add as-is
+        const textNode = node as unknown as { data: string };
+        result += textNode.data;
+      } else if (node.type === 'tag') {
+        const $node = $(node);
+        const tagName = (node as cheerio.TagElement).name.toLowerCase();
+
+        switch (tagName) {
+          case 'strong':
+          case 'b':
+            result += `**${this.htmlToMarkdown($node)}**`;
+            break;
+          case 'em':
+          case 'i':
+            result += `*${this.htmlToMarkdown($node)}*`;
+            break;
+          case 'code':
+            result += `\`${$node.text()}\``;
+            break;
+          case 'a': {
+            const href = $node.attr('href') || '';
+            const text = this.htmlToMarkdown($node);
+            result += href ? `[${text}](${href})` : text;
+            break;
+          }
+          case 'br':
+            result += '\n';
+            break;
+          case 'p':
+            result += this.htmlToMarkdown($node) + '\n\n';
+            break;
+          case 'ul':
+            $node.children('li').each((_, li) => {
+              result += `- ${this.htmlToMarkdown($(li)).trim()}\n`;
+            });
+            break;
+          case 'ol':
+            $node.children('li').each((idx, li) => {
+              result += `${idx + 1}. ${this.htmlToMarkdown($(li)).trim()}\n`;
+            });
+            break;
+          case 'li':
+            // Handle nested content within li
+            result += this.htmlToMarkdown($node);
+            break;
+          case 'h1':
+            result += `# ${this.htmlToMarkdown($node)}\n`;
+            break;
+          case 'h2':
+            result += `## ${this.htmlToMarkdown($node)}\n`;
+            break;
+          case 'h3':
+            result += `### ${this.htmlToMarkdown($node)}\n`;
+            break;
+          case 'h4':
+            result += `#### ${this.htmlToMarkdown($node)}\n`;
+            break;
+          case 'h5':
+            result += `##### ${this.htmlToMarkdown($node)}\n`;
+            break;
+          case 'h6':
+            result += `###### ${this.htmlToMarkdown($node)}\n`;
+            break;
+          case 'blockquote':
+            result += `> ${this.htmlToMarkdown($node).trim()}\n`;
+            break;
+          case 'hr':
+            result += '\n---\n';
+            break;
+          case 'del':
+          case 's':
+          case 'strike':
+            result += `~~${this.htmlToMarkdown($node)}~~`;
+            break;
+          case 'sub':
+            result += `~${this.htmlToMarkdown($node)}~`;
+            break;
+          case 'sup':
+            result += `^${this.htmlToMarkdown($node)}^`;
+            break;
+          case 'img': {
+            const alt = $node.attr('alt') || '';
+            const src = $node.attr('src') || '';
+            result += `![${alt}](${src})`;
+            break;
+          }
+          case 'span':
+          case 'div':
+          default:
+            // For other tags, just process their content
+            result += this.htmlToMarkdown($node);
+            break;
+        }
+      }
+    });
+
+    return result;
   }
 
   /**

@@ -150,12 +150,20 @@ export async function convertData(
       // Apply data manipulation if specified
       parsedData = applyDataManipulation(parsedData, options);
 
-      if (sourceFormat === 'html' && Array.isArray(parsedData)) {
-        if (options.multipleItems && parsedData.length > 1) {
+      if (sourceFormat === 'html') {
+        // Check if data is already in heading-key format (object instead of array)
+        if (!Array.isArray(parsedData) && typeof parsedData === 'object' && parsedData !== null) {
+          // Already in heading-key format, return as-is
           return parsedData;
         }
-        if (parsedData.length === 1 && Array.isArray(parsedData[0])) {
-          return parsedData[0];
+
+        if (Array.isArray(parsedData)) {
+          if (options.multipleItems && parsedData.length > 1) {
+            return parsedData;
+          }
+          if (parsedData.length === 1 && Array.isArray(parsedData[0])) {
+            return parsedData[0];
+          }
         }
       }
 

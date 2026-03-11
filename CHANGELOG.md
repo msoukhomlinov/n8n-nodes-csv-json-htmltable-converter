@@ -2,6 +2,39 @@
 
 All notable changes to the n8n-nodes-csv-json-htmltable-converter package will be documented in this file.
 
+## [1.7.0] - 2026-01-12
+
+### Added
+- **Cell Content Format Option:** New option under "Show Data Manipulation" when converting from HTML. Choose between:
+  - **Plain Text** (default): Strips all HTML tags, returning only text content
+  - **Markdown**: Preserves rich content structure using markdown syntax:
+    - Lists (`<ul>`, `<ol>`) → `- item` or `1. item`
+    - Bold (`<strong>`, `<b>`) → `**text**`
+    - Italic (`<em>`, `<i>`) → `*text*`
+    - Links (`<a>`) → `[text](url)`
+    - Code (`<code>`) → `` `text` ``
+    - Line breaks (`<br>`) → newlines
+    - Strikethrough (`<del>`, `<s>`) → `~~text~~`
+    - Images (`<img>`) → `![alt](src)`
+
+
+## [1.6.0] - 2026-01-12
+
+### Added
+- **Automatic Heading Detection for "All Tables" Preset:** Heading detection is now automatically enabled when using the "All Tables" preset, regardless of the "Multiple Tables/Objects" setting. If no heading selector is provided, the system defaults to checking h1-h5 headings.
+- **Heading Hierarchy Support:** Tables now preserve heading hierarchy (h1 → h2 → h3, etc.) in the output. Tables under h2 that come after h1 are nested under the h1 section in JSON output. CSV output shows the full heading path as comments (e.g., `# Section 1 > Subsection 1.1`).
+
+
+## [1.5.0] - 2025-12-24
+
+### Added
+- **Heading Detection for Multiple Tables:** When processing multiple tables, you can now detect preceding headings or labels and use them as object keys in the output structure. This allows tables to be identified by meaningful names (e.g., "2025", "2026") instead of generic "data" fields.
+  - **Enable Heading Detection:** Toggle to activate heading detection (available when Multiple Tables/Objects is enabled and Source Format is HTML)
+  - **Heading Selector:** CSS selector to identify the element containing the heading text (e.g., `div.term-date span.year`). The element should precede the table in the HTML structure.
+  - **Output Structure:** When heading detection is enabled and headings are found, output changes from array format `[{data: [...]}, {data: [...]}]` to object format `{"2025": [...], "2026": [...]}`
+  - **CSV Output:** Headings are included as comment lines in CSV output (e.g., `# 2025`)
+  - **Edge Case Handling:** Automatic fallback naming (`table_1`, `table_2`) when headings are missing, duplicate handling with numeric suffixes, and text sanitization for valid JavaScript object keys
+
 ## [1.4.1] - 2025-11-09
 
 ### Fixed

@@ -966,6 +966,58 @@ export const nodeDescription: INodeTypeDescription = {
       },
     },
     {
+      displayName: 'Enable Heading Detection',
+      name: 'enableHeadingDetection',
+      type: 'boolean',
+      default: false,
+      description: 'Detect headings or labels before each table to use as identifiers in the output',
+      displayOptions: {
+        show: {
+          operation: ['convert'],
+          sourceFormat: ['html'],
+          multipleItems: [true],
+        },
+        hide: {
+          tablePreset: ['all-tables'],
+        },
+      },
+    },
+    {
+      displayName: 'Heading Selector',
+      name: 'headingSelector',
+      type: 'string',
+      default: '',
+      description: 'CSS selector for the element containing the heading text (e.g., "div.term-date span.year"). The element should precede the table in the HTML structure.',
+      placeholder: 'div.year, h2, .table-label',
+      displayOptions: {
+        show: {
+          operation: ['convert'],
+          sourceFormat: ['html'],
+          multipleItems: [true],
+          enableHeadingDetection: [true],
+        },
+        hide: {
+          tablePreset: ['all-tables'],
+        },
+      },
+    },
+    {
+      displayName: 'Heading Selector',
+      name: 'headingSelector',
+      type: 'string',
+      default: '',
+      description: 'CSS selector for headings preceding tables. Default (blank): checks &lt;h1&gt;, &lt;h2&gt;, &lt;h3&gt;, &lt;h4&gt;, &lt;h5&gt; elements and preserves their hierarchy in the output.',
+      placeholder: 'Default: h1-h5. Custom: div.year, .table-label',
+      displayOptions: {
+        show: {
+          operation: ['convert'],
+          sourceFormat: ['html'],
+          selectorMode: ['simple'],
+          tablePreset: ['all-tables'],
+        },
+      },
+    },
+    {
       displayName: 'Caption Text',
       name: 'captionText',
       type: 'string',
@@ -1035,6 +1087,24 @@ export const nodeDescription: INodeTypeDescription = {
       displayOptions: {
         show: {
           operation: ['convert', 'replace'],
+          showDataManipulation: [true],
+        },
+      },
+    },
+    {
+      displayName: 'Cell Content Format',
+      name: 'cellContentFormat',
+      type: 'options',
+      options: [
+        { name: 'Plain Text', value: 'text' },
+        { name: 'Markdown', value: 'markdown' },
+      ],
+      default: 'text',
+      description: 'How to format rich content (lists, links, formatting) inside table cells. Plain Text strips all HTML (default). Markdown preserves structure using markdown syntax (bullets become "- item", bold becomes "**text**", etc.).',
+      displayOptions: {
+        show: {
+          operation: ['convert'],
+          sourceFormat: ['html'],
           showDataManipulation: [true],
         },
       },

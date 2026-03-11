@@ -176,4 +176,155 @@ describe('CSV, JSON and HTML conversions', () => {
     expect(result).not.toContain('&lt;<td>');
     expect(result).not.toContain('<td>&lt;');
   });
+
+  describe('Heading Detection', () => {
+    const htmlWithHeadings = `
+      <div class="term-date"><span class="year">2025</span></div>
+      <table class="table table-condensed table-hover">
+        <thead></thead>
+        <tbody>
+          <tr><td>Term 1</td><td>Tuesday 28 January – Friday 4 April</td></tr>
+          <tr><td>Term 2</td><td>Tuesday 22 April – Friday 4 July</td></tr>
+        </tbody>
+      </table>
+      <div class="term-date"><span class="year">2026</span></div>
+      <table class="table table-condensed table-hover">
+        <thead></thead>
+        <tbody>
+          <tr><td>Term 1</td><td>Tuesday 27 January – Thursday 2 April</td></tr>
+          <tr><td>Term 2</td><td>Monday 20 April – Friday 26 June</td></tr>
+        </tbody>
+      </table>
+    `;
+
+    test('should detect headings before tables', async () => {
+      const result = await htmlToJson(htmlWithHeadings, {
+        multipleItems: true,
+        enableHeadingDetection: true,
+        headingSelector: 'div.term-date span.year',
+        includeTableHeaders: false,
+      });
+
+      const parsed = JSON.parse(result);
+      expect(typeof parsed).toBe('object');
+      expect(Array.isArray(parsed)).toBe(false);
+      expect(parsed).toHaveProperty('2025');
+      expect(parsed).toHaveProperty('2026');
+    });
+
+    test('should use headings as object keys in output', async () => {
+      const result = await htmlToJson(htmlWithHeadings, {
+        multipleItems: true,
+        enableHeadingDetection: true,
+        headingSelector: 'div.term-date span.year',
+        includeTableHeaders: false,
+      });
+
+      const parsed = JSON.parse(result);
+      expect(parsed['2025']).toBeDefined();
+      expect(parsed['2026']).toBeDefined();
+      expect(Array.isArray(parsed['2025'])).toBe(true);
+      expect(Array.isArray(parsed['2026'])).toBe(true);
+      expect(parsed['2025'][0]).toEqual(['Term 1', 'Tuesday 28 January – Friday 4 April']);
+      expect(parsed['2026'][0]).toEqual(['Term 1', 'Tuesday 27 January – Thursday 2 April']);
+    });
+
+    test('should handle missing headings with fallback names', async () => {
+      const htmlWithoutHeadings = `
+        <table><tbody><tr><td>Data 1</td></tr></tbody></table>
+        <table><tbody><tr><td>Data 2</td></tr></tbody></table>
+      `;
+
+      const result = await htmlToJson(htmlWithoutHeadings, {
+        multipleItems: true,
+        enableHeadingDetection: true,
+        headingSelector: 'div.term-date span.year',
+        includeTableHeaders: false,
+      });
+
+      const parsed = JSON.parse(result);
+      expect(parsed).toHaveProperty('table_1');
+      expect(parsed).toHaveProperty('table_2');
+    });
+
+    test('should handle duplicate headings', async () => {
+      const htmlWithDuplicateHeadings = `
+        <div class="term-date"><span class="year">2025</span></div>
+        <table><tbody><tr><td>Data 1</td></tr></tbody></table>
+        <div class="term-date"><span class="year">2025</span></div>
+        <table><tbody><tr><td>Data 2</td></tr></tbody></table>
+      `;
+
+      const result = await htmlToJson(htmlWithDuplicateHeadings, {
+        multipleItems: true,
+        enableHeadingDetection: true,
+        headingSelector: 'div.term-date span.year',
+        includeTableHeaders: false,
+      });
+
+      const parsed = JSON.parse(result);
+      expect(parsed).toHaveProperty('2025');
+      expect(parsed).toHaveProperty('2025_2');
+    });
+
+    test('should sanitize invalid heading text', async () => {
+      const htmlWithSpecialChars = `
+        <div class="heading">Year 2025 (Q1-Q4)</div>
+        <table><tbody><tr><td>Data 1</td></tr></tbody></table>
+        <div class="heading">Year 2026: All Terms</div>
+        <table><tbody><tr><td>Data 2</td></tr></tbody></table>
+      `;
+
+      const result = await htmlToJson(htmlWithSpecialChars, {
+        multipleItems: true,
+        enableHeadingDetection: true,
+        headingSelector: 'div.heading',
+        includeTableHeaders: false,
+      });
+
+      const parsed = JSON.parse(result);
+      // Should sanitize special characters
+      expect(parsed).toHaveProperty('Year_2025_Q1_Q4');
+      expect(parsed).toHaveProperty('Year_2026_All_Terms');
+    });
+
+    test('should include headings in CSV output as comments', async () => {
+      const result = await htmlToCsv(htmlWithHeadings, {
+        multipleItems: true,
+        enableHeadingDetection: true,
+        headingSelector: 'div.term-date span.year',
+        includeTableHeaders: false,
+      });
+
+      expect(result).toContain('# 2025');
+      expect(result).toContain('# 2026');
+    });
+
+    test('should work with n8nObject output format', async () => {
+      const result = await convertData(htmlWithHeadings, 'html', 'n8nObject', {
+        multipleItems: true,
+        enableHeadingDetection: true,
+        headingSelector: 'div.term-date span.year',
+        includeTableHeaders: false,
+      });
+
+      expect(typeof result).toBe('object');
+      expect(Array.isArray(result)).toBe(false);
+      expect(result).toHaveProperty('2025');
+      expect(result).toHaveProperty('2026');
+    });
+
+    test('should fall back to array format when heading detection is disabled', async () => {
+      const result = await htmlToJson(htmlWithHeadings, {
+        multipleItems: true,
+        enableHeadingDetection: false,
+        includeTableHeaders: false,
+      });
+
+      const parsed = JSON.parse(result);
+      expect(Array.isArray(parsed)).toBe(true);
+      expect(parsed[0]).toHaveProperty('data');
+      expect(parsed[1]).toHaveProperty('data');
+    });
+  });
 });
