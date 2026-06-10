@@ -99,16 +99,24 @@ describe('Input Validation Security Tests', () => {
 
   test('detects excessively nested HTML', () => {
     let deeplyNested = '<table>';
-    for (let i = 0; i < 110; i++) {
+    for (let i = 0; i < 260; i++) {
       deeplyNested += '<tr><td>';
     }
     deeplyNested += 'content';
-    for (let i = 0; i < 110; i++) {
+    for (let i = 0; i < 260; i++) {
       deeplyNested += '</td></tr>';
     }
     deeplyNested += '</table>';
 
     expect(() => validateHtmlInput(deeplyNested)).toThrow('excessively nested structure');
+  });
+
+  test('accepts content-heavy HTML with many void elements', () => {
+    const rows = Array.from({ length: 100 }, () =>
+      '<tr><td>line1<br>line2<br>line3<br>line4<br>line5</td></tr>',
+    ).join('');
+    const html = `<table>${rows}</table>`;
+    expect(() => validateHtmlInput(html)).not.toThrow();
   });
 });
 

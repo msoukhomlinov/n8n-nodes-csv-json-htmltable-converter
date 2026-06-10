@@ -14,6 +14,13 @@ const DANGEROUS_ATTRIBUTES = [
   'onsubmit', 'onunload', 'javascript:', 'data:text/html', 'vbscript:'
 ];
 
+const VOID_ELEMENTS = new Set([
+  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
+  'link', 'meta', 'param', 'source', 'track', 'wbr',
+]);
+
+const MAX_NESTING_DEPTH = 500;
+
 /**
  * Sanitizes HTML content to prevent XSS attacks and script injection
  * @param html The HTML string to sanitize
@@ -90,35 +97,28 @@ export function validateHtmlInput(html: string, maxSize: number = 10 * 1024 * 10
 
   // Check for extremely nested structures that could cause performance issues
   const nestingDepth = getMaxNestingDepth(html);
-  if (nestingDepth > 100) {
-    throw new Error('Invalid HTML input: excessively nested structure detected');
+  if (nestingDepth > MAX_NESTING_DEPTH) {
+    throw new Error(
+      `Invalid HTML input: excessively nested structure detected (depth: ${nestingDepth}, threshold: ${MAX_NESTING_DEPTH}). ` +
+      `Check for unclosed tags or void elements (e.g. <br>) in the input HTML.`,
+    );
   }
 }
 
-/**
- * Calculates the maximum nesting depth of HTML tags
- * @param html The HTML string to analyze
- * @returns Maximum nesting depth
- */
 function getMaxNestingDepth(html: string): number {
   let maxDepth = 0;
   let currentDepth = 0;
-
-  // Simple regex to count opening and closing tags
   const tagRegex = /<\/?[a-zA-Z][^>]*>/g;
   let match;
-
   while ((match = tagRegex.exec(html)) !== null) {
     const tag = match[0];
-    if (!tag.startsWith('</') && !tag.endsWith('/>')) {
-      // Opening tag
+    const tagName = (tag.match(/<\/?([a-zA-Z][a-zA-Z0-9]*)/)?.[1] ?? '').toLowerCase();
+    if (!tag.startsWith('</') && !tag.endsWith('/>') && !VOID_ELEMENTS.has(tagName)) {
       currentDepth++;
       maxDepth = Math.max(maxDepth, currentDepth);
-    } else if (tag.startsWith('</')) {
-      // Closing tag
+    } else if (tag.startsWith('</') && !VOID_ELEMENTS.has(tagName)) {
       currentDepth = Math.max(0, currentDepth - 1);
     }
   }
-
   return maxDepth;
 }
